@@ -3,7 +3,7 @@ KNN project (Convolutional Neural Networks) at FIT (B|V)UT. 2023/2024 summer sem
 
 ## Zadání
 
-Libovolnou segmentační úlohu lze změnit na interaktivní tím, že na vstup sítě nedám jen obraz, ale i uživatelský vstup, třeba jako další "barevný" kanál s místy, které uživatel označil. Podobně to jde u bodových mrače. Můžete využít existující datasety (např. [KITTI](http://www.cvlibs.net/datasets/kitti/eval_semantics.php), NYU Depth Dataset V2 [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), [NYU Depth V2 - Kaggle](https://www.kaggle.com/datasets/soumikrakshit/nyu-depth-v2)), nebo si i můžete pujčit LIDAR Livox Horizon, přípdaně nějakou RGB-D kameru typu Kinect.
+Libovolnou segmentační úlohu lze změnit na interaktivní tím, že na vstup sítě nedám jen obraz, ale i uživatelský vstup, třeba jako další "barevný" kanál s místy, které uživatel označil. Podobně to jde u bodových mrače. Můžete využít existující datasety (např. [KITTI](http://www.cvlibs.net/datasets/kitti/eval_semantics.php), [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), [NYU Depth V2 - Kaggle](https://www.kaggle.com/datasets/soumikrakshit/nyu-depth-v2)), nebo si i můžete pujčit LIDAR Livox Horizon, přípdaně nějakou RGB-D kameru typu Kinect.
 Ning Xu, Brian Price, Scott Cohen, Jimei Yang, and Thomas Huang. Deep Interactive Object Selection. CVPR 2016. https://sites.google.com/view/deepselection
 
 
