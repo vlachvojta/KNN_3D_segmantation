@@ -46,3 +46,7 @@ Ning Xu, Brian Price, Scott Cohen, Jimei Yang, and Thomas Huang. Deep Interactiv
 - PyTorch
 - [MinkowskiEngine](https://github.com/NVIDIA/MinkowskiEngine) - support přímo na point cloudy…
 
+## Zdroje
+Článek, co budeme prezentovat: [Interactive Object Segmentation in 3D Point Clouds, článek](https://arxiv.org/pdf/2204.07183.pdf)
+3D Deep Learning Python Tutorial: PointNet Data Preparation: [https://freedium.cfd/https://towardsdatascience.com/3d-deep-learning-python-tutorial-pointnet-data-preparation-90398f880c9f](https://freedium.cfd/https://towardsdatascience.com/3d-deep-learning-python-tutorial-pointnet-data-preparation-90398f880c9f)
+Srovnání různých způsobů data augmentation: [data augmentation](https://arxiv.org/ftp/arxiv/papers/2308/2308.12113.pdf)
