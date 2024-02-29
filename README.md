@@ -8,16 +8,17 @@ Ning Xu, Brian Price, Scott Cohen, Jimei Yang, and Thomas Huang. Deep Interactiv
 
 
 ## TODOs
-- [ ] vybrat dataset
-- [ ] vybrat prostředí experimentu a architekturu
+- [x] vybrat dataset - zatím S3DIS
+- [ ] vybrat prostředí experimentu (pyTorch, open3DML, kombinace)
+- [ ] Zkusit různé architektury (grafové sítě, PointNet++ spešl síť)
 - [ ] vytvořit neinteraktivní baseline
-
 
 ## Datasety
 
+- S3DIS - [paperswithcode.com/dataset/s3dis](https://paperswithcode.com/dataset/s3dis)
+  - měl by to být pointCloud dataset (normály, barvy...), TODO stažení přes Google Formulář...
 - NUY - RGBD
 - KITTI - point cloudy
-- S3DIS - https://paperswithcode.com/dataset/s3dis
 - Předzpracování / augmentace: zkusit různý rotace, skew, shift… (viz PointNet článek)
 - Augmentace: jak zadávat náhodně negativní vstupy okolo…
 - Na vstup dát i normály (z RGB-D do point cloudu to musíme dopočítat/doodhadnout třeba pomocí open3D)
