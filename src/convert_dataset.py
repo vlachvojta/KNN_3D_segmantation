@@ -46,11 +46,11 @@ def process_dataset(src, dst):
             size = len(pcd.point.positions)
 
             pcd.point.group = o3d.core.Tensor(
-                np.full((size, 1), group), o3d.core.int32, o3d.core.Device("CPU:0"))
+                np.full((size, 1), group), o3d.core.uint8, o3d.core.Device("CPU:0"))
             pcd.point.maskPositive = o3d.core.Tensor(
-                np.zeros((size, 1)), o3d.core.int32, o3d.core.Device("CPU:0")).reshape((size, 1))
+                np.zeros((size, 1)), o3d.core.uint8, o3d.core.Device("CPU:0")).reshape((size, 1))
             pcd.point.maskNegative = o3d.core.Tensor(
-                np.zeros((size, 1)), o3d.core.int32, o3d.core.Device("CPU:0")).reshape((size, 1))
+                np.zeros((size, 1)), o3d.core.uint8, o3d.core.Device("CPU:0")).reshape((size, 1))
 
             merged_pcd = pcd if group == 0 else merged_pcd + pcd
             group += 1
