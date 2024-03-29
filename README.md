@@ -26,14 +26,12 @@ Ning Xu, Brian Price, Scott Cohen, Jimei Yang, and Thomas Huang. Deep Interactiv
 
 ## Rámcový postup
 
-1) Baseline:
-    - Neinteraktivní segmentace na point cloudech
-2) Interactive rozšíření
-    - Trénování pomocí samplování jedné třídy z původního datasetu
+1) Interactive baseline pomocí [InterObject3d](https://github.com/theodorakontogianni/InterObject3D) repozitáře
+    - Trénování pomocí samplování jedné třídy z původního datasetu S3DIS
     - Jenom pozitivní body
-3) Rozšíření o negativní body
+2) Rozšíření o negativní body
     - Přidat negativní body do trénovací sady
-4) Přidat možnost víc bodů
+3) Přidat možnost víc bodů
     - Input je už částečně obarvenej point cloud + nový bod pozitivní / negativní
 
 ## Architektura modelu
