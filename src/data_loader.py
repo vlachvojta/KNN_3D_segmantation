@@ -62,7 +62,16 @@ class DataLoader:
             pcd = o3d.t.io.read_point_cloud(random_area)
             pcd.point.maskPositive[self.data[random_area]
                                    [random_object][random_point]] = 1
-            batch.append(pcd)
+
+            # Create a mask with the same group as the clicked point
+            group = pcd.point.group[self.data[random_area]
+                                    [random_object][random_point]].numpy()[0]
+            label = (pcd.point.group.numpy() == group)
+            label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0"))
+            del pcd.point.group
+
+            # Add tuple of pointcloud and label to batch
+            batch.append((pcd, label))
 
             # Remove already simulated point from data
             del self.data[random_area][random_object][random_point]

@@ -13,10 +13,14 @@ if __name__ == "__main__":
     data_loader = DataLoader(args.src_path, 5, args.force)
 
     batch = data_loader.get_batch(5)
-    print(type(batch))
-    print(type(batch[0]))
-    for pcd in batch:
-        print(pcd.point)
+
+    print("batch type: ", type(batch))
+    print("batch label type: ", type(batch[0][1]))
+    print("batch input type: ", type(batch[0][0]))
+
+    for input, label in batch:
+        print(input.point)
+        break
 
     # Example usage, get every batch
     # while True:
