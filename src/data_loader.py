@@ -5,6 +5,9 @@ import random
 import time
 from itertools import groupby
 
+import numpy as np
+import torch
+
 random.seed(time.time())
 
 
@@ -51,7 +54,10 @@ class DataLoader:
             pickle.dump(self.data, f)
 
     def get_batch(self, batch_size=5):
-        batch = []
+        coords_batch = []
+        feats_batch = []
+        label_batch = []
+
         for _ in range(batch_size):
             # Select random area, object and point
             random_area = random.choice(list(self.data.keys()))
@@ -69,11 +75,16 @@ class DataLoader:
             group = pcd.point.group[self.data[random_area]
                                     [random_object][random_point]].numpy()[0]
             label = (pcd.point.group.numpy() == group)
-            label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0"))
+            label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
             del pcd.point.group
 
             # Add tuple of pointcloud and label to batch
-            batch.append((pcd, label))
+            coords = pcd.point.positions.numpy()
+            feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
+
+            coords_batch.append(coords)
+            feats_batch.append(feats)
+            label_batch.append(label)
 
             # Remove already simulated point from data
             del self.data[random_area][random_object][random_point]
@@ -83,6 +94,16 @@ class DataLoader:
                     del self.data[random_area]
                     if not self.data:
                         # Every point has been processed
-                        return []
+                        return None
 
-        return batch
+        # Concatenate the lists of numpy arrays
+        coords_batch = np.stack(coords_batch, axis=0)
+        feats_batch = np.stack(feats_batch, axis=0)
+        label_batch = np.stack(label_batch, axis=0)
+
+        feats_batch = torch.tensor(feats_batch, dtype=torch.float32)
+        coords_batch = torch.tensor(coords_batch, dtype=torch.uint8)
+        label_batch = torch.tensor(label_batch, dtype=torch.uint8)
+
+        # Return the concatenated arrays
+        return coords_batch, feats_batch, label_batch

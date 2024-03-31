@@ -1,6 +1,7 @@
 import argparse
 from data_loader import DataLoader
 
+import numpy as np
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -12,15 +13,11 @@ if __name__ == "__main__":
 
     data_loader = DataLoader(args.src_path, 5, args.force)
 
-    batch = data_loader.get_batch(5)
+    coords_batch, feats_batch, label_batch = data_loader.get_batch(5)
 
-    print("batch type: ", type(batch))
-    print("batch label type: ", type(batch[0][1]))
-    print("batch input type: ", type(batch[0][0]))
-
-    for input, label in batch:
-        print(input.point)
-        break
+    print(f'coords_batch ({type(coords_batch)}): {coords_batch.shape}')
+    print(f'feats_batch ({type(feats_batch)}): {feats_batch.shape}')
+    print(f'label_batch ({type(label_batch)}): {label_batch.shape}')
 
     # Example usage, get every batch
     # while True:
