@@ -10,14 +10,16 @@ random.seed(time.time())
 
 class DataLoader:
     def __init__(self, data_path, points_per_object=5, force=False):
-        assert os.path.exists(data_path)
+        assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
+
+        self.cache_path = os.path.join(data_path, "dataloader_cache")
 
         # Load from cache
-        if os.path.exists("../dataset/S3DIS_converted/dataloader_cache"):
+        if os.path.exists(self.cache_path):
             if force:
-                os.remove("../dataset/S3DIS_converted/dataloader_cache")
+                os.remove(self.cache_path)
             else:
-                with open("../dataset/S3DIS_converted/dataloader_cache", 'rb') as f:
+                with open(self.cache_path, 'rb') as f:
                     self.data = pickle.load(f)
                 return
 
@@ -45,7 +47,7 @@ class DataLoader:
                 offset += len(group)
 
         # Save to cache
-        with open("../dataset/S3DIS_converted/dataloader_cache", 'wb') as f:
+        with open(self.cache_path, 'wb') as f:
             pickle.dump(self.data, f)
 
     def get_batch(self, batch_size=5):
