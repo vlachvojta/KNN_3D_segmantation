@@ -1,6 +1,5 @@
 import argparse
 import os
-
 import torch
 
 from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
@@ -35,14 +34,17 @@ def main():
         coords, feats, labels = batch
         coords = coords[0]
         feats = feats[0]
-        labels = labels[0]
+        labels = labels[0].float().long().to(device)
         print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
         print(f'inputs: feats({feats.shape}) coords({coords.shape})')
         print(f'labels: {labels.shape}')
         pred, logits = inseg_model_class.prediction(feats, coords, inseg_global_model, device)
-        print(f'outputs: pred({pred.shape}) logits({logits.shape})')
-        iou = inseg_model_class.mean_iou(pred, labels)
+        print(f'outputs: pred({pred.shape}) lalebs({labels.shape})')
+        num = int(pred.numel())
+        reshaped_pred = torch.reshape(pred, (num, 1))
+    
+        iou = inseg_model_class.mean_iou(reshaped_pred, labels)
         print(f'iou: {iou}')
 
         results.append(iou)
