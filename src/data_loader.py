@@ -12,10 +12,11 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, force=False):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False):
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
         self.cache_path = os.path.join(data_path, "dataloader_cache")
+        self.click_area = click_area
 
         # Load from cache
         if os.path.exists(self.cache_path):
@@ -64,16 +65,22 @@ class DataLoader:
             random_object = random.randint(0, len(self.data[random_area])-1)
             random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
 
-            print(f"Simulated click - {random_area}/object {random_object}/point {random_point}")
+            print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
 
             # Load pointcloud and simulate positive click in maskPositive
             pcd = o3d.t.io.read_point_cloud(random_area)
-            pcd.point.maskPositive[self.data[random_area]
-                                   [random_object][random_point]] = 1
+        
+            # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
+            # It's ugly but it works
+            pcd_tree = o3d.geometry.PointCloud()
+            pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
+            tree = o3d.geometry.KDTreeFlann(pcd_tree)
+            [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[self.data[random_area][random_object][random_point]], self.click_area)
+            for i in idx:
+                pcd.point.maskPositive[i] = 1
 
             # Create a mask with the same group as the clicked point
-            group = pcd.point.group[self.data[random_area]
-                                    [random_object][random_point]].numpy()[0]
+            group = pcd.point.group[self.data[random_area][random_object][random_point]].numpy()[0]
             label = (pcd.point.group.numpy() == group)
             label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
             del pcd.point.group
@@ -102,7 +109,7 @@ class DataLoader:
         label_batch = np.stack(label_batch, axis=0)
 
         feats_batch = torch.tensor(feats_batch, dtype=torch.float32)
-        coords_batch = torch.tensor(coords_batch, dtype=torch.uint8)
+        coords_batch = torch.tensor(coords_batch, dtype=torch.float32)
         label_batch = torch.tensor(label_batch, dtype=torch.uint8)
 
         # Return the concatenated arrays
