@@ -1,9 +1,11 @@
 import argparse
-import os
+
 import torch
+import open3d as o3d
 
 from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
 from data_loader import DataLoader
+import utils
 
 
 def main():
@@ -27,7 +29,7 @@ def main():
     i = 0
 
     while True:
-        print(f'Batch {i}')
+        print(f'\nBatch {i}')
         batch = data_loader.get_batch(1)
         if not batch:
             break
@@ -37,21 +39,25 @@ def main():
         labels = labels[0].float().long().to(device)
         print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-        print(f'inputs: feats({feats.shape}) coords({coords.shape})')
-        print(f'labels: {labels.shape}')
+        print(f'inputs: feats({feats.shape})\n'
+              f'        coords({coords.shape})')
         pred, logits = inseg_model_class.prediction(feats, coords, inseg_global_model, device)
-        print(f'outputs: pred({pred.shape}) lalebs({labels.shape})')
-        num = int(pred.numel())
-        reshaped_pred = torch.reshape(pred, (num, 1))
-    
-        iou = inseg_model_class.mean_iou(reshaped_pred, labels)
+        pred = torch.unsqueeze(pred, dim=-1)
+        print(f'outputs: pred({pred.shape})\n'
+              f'         logits({logits.shape})')
+        print(f'labels: labels({labels.shape})')
+
+        iou = inseg_model_class.mean_iou(pred, labels)
         print(f'iou: {iou}')
+
+        utils.visualize_prediction_result(coords, feats, labels, pred, iou, results, i)
 
         results.append(iou)
         i += 1
 
     # print result mean
     print(f'Mean IoU: {sum(results) / len(results)}')
+
 
 def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
