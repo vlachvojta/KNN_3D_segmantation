@@ -13,10 +13,17 @@ random.seed(time.time())
 
 class DataLoader:
     def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False):
+        self.data_path = data_path
+        self.points_per_object = points_per_object
+        self.click_area = click_area
+        self.force = force
+
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
-        self.cache_path = os.path.join(data_path, "dataloader_cache")
-        self.click_area = click_area
+        # self.cache_path = os.path.join(data_path, "dataloader_cache")
+        self.cache_path = os.path.join(data_path, "dataloader_cache_ppo" + str(points_per_object) + "_ca" + str(click_area) + ".pkl")
+        print(f"Cache path: {self.cache_path}")
+
 
         # Load from cache
         if os.path.exists(self.cache_path):

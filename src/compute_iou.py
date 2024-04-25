@@ -14,6 +14,8 @@ def main():
                         help="Source path (default: ../dataset/S3DIS_converted")
     parser.add_argument("-m", "--model_path", required=True,
                         help="Model path (required)")
+    parser.add_argument("-3", "--show_3d", default=False, action='store_true',
+                        help="Show 3D visualization of output models(default: False)")
     args = parser.parse_args()
 
     print('Args:', args)
@@ -50,7 +52,12 @@ def main():
         iou = inseg_model_class.mean_iou(pred, labels)
         print(f'iou: {iou}')
 
-        utils.visualize_prediction_result(coords, feats, labels, pred, iou, results, i)
+        output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
+
+        if args.show_3d:
+            o3d.visualization.draw_geometries([output_point_cloud])
+
+        utils.save_point_cloud_views(output_point_cloud, iou, i, '../results/')
 
         results.append(iou)
         i += 1
@@ -63,6 +70,18 @@ def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
     return inseg_global, global_model
+
+def get_output_point_cloud(coords, feats, labels, pred):
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(coords.numpy())
+
+    colors = feats.numpy()[:, :3] / 255
+    colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
+    colors[pred.cpu().numpy()[:, 0] == 1] = [1, 0, 0] # maskPositive output RED
+    colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
+    point_cloud.colors = o3d.utility.Vector3dVector(colors)
+
+    return point_cloud
 
 
 if __name__ == "__main__":
