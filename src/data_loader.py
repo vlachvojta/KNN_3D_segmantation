@@ -55,9 +55,9 @@ class DataLoader:
             pickle.dump(self.data, f)
 
     def get_batch(self, batch_size=5):
-        coords_batch = []
-        feats_batch = []
-        label_batch = []
+        coords_list = []
+        feats_list = []
+        label_list = []
 
         for _ in range(batch_size):
             # Select random area, object and point
@@ -89,9 +89,9 @@ class DataLoader:
             coords = pcd.point.positions.numpy()
             feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
 
-            coords_batch.append(coords)
-            feats_batch.append(feats)
-            label_batch.append(label)
+            coords_list.append(coords)
+            feats_list.append(feats)
+            label_list.append(label)
 
             # Remove already simulated point from data
             del self.data[random_area][random_object][random_point]
@@ -101,16 +101,20 @@ class DataLoader:
                     del self.data[random_area]
                     if not self.data:
                         # Every point has been processed
+                        print("DataLoader: All points have been processed. Returning None.")
                         return None
 
         # Concatenate the lists of numpy arrays
-        coords_batch = np.stack(coords_batch, axis=0)
-        feats_batch = np.stack(feats_batch, axis=0)
-        label_batch = np.stack(label_batch, axis=0)
-
-        feats_batch = torch.tensor(feats_batch, dtype=torch.float32)
-        coords_batch = torch.tensor(coords_batch, dtype=torch.float32)
-        label_batch = torch.tensor(label_batch, dtype=torch.uint8)
+        coords_batch = self.list_to_batch(coords_list, torch.float32)
+        feats_batch = self.list_to_batch(feats_list, torch.float32)
+        label_batch = self.list_to_batch(label_list, torch.uint8)
 
         # Return the concatenated arrays
         return coords_batch, feats_batch, label_batch
+
+    def list_to_batch(self, clouds, dtype):
+        max_len = max([len(cloud) for cloud in clouds])
+        clouds = [np.pad(cloud, ((0, max_len - len(cloud)), (0, 0)), 'constant', constant_values=0) 
+                  for cloud in clouds]
+        batch = np.stack(clouds, axis=0)
+        return torch.tensor(batch, dtype=dtype)
