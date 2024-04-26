@@ -76,7 +76,10 @@ def main(args):
     accum_loss, accum_iter, tot_iter = 0, 0, 0
 
     for epoch in range(args.max_epochs):
-        while True:
+        train_dataloader.new_epoch()
+
+        while True:  # get new batches until they run out
+            print('')
             train_batch = train_dataloader.get_batch(1)
             if not train_batch:
                 break
@@ -85,12 +88,9 @@ def main(args):
             coords = coords[0]
             feats = feats[0]
             labels = labels[0]
-            labels = labels.float().long()
-            print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+            labels = labels.float()
 
             voxel_size = 0.05
-            # Feed-forward pass and get the prediction
-            # sinput = ME.SparseTensor(feats, coords)  # jednodussi varianta, ale taky to padalo na nejakej error
             sinput = ME.SparseTensor(
                 features=feats,
                 coordinates=ME.utils.batched_coordinates([coords / voxel_size]),
@@ -98,19 +98,15 @@ def main(args):
                 # device=device
             )  # .to(device)
 
-
-            print(f'sinput.F.shape: {sinput.F.shape}')
             inseg_global_model.train()
-            out = inseg_global_model(sinput)
-            print('out.F.shape:', out.F.shape)
-            out = out.slice(sinput)
-            print('out.F.shape after slice:', out.F.shape)
+            out = inseg_global_model(sinput).slice(sinput)
+
             optimizer.zero_grad()
-            print('out.F.squeeze().shape:', out.F.squeeze().shape)
-            print('labels.long().shape:', labels.long().shape)
-            loss = criterion(out.F.squeeze(), labels.long())
+            labels = labels_to_logit_shape(labels)
+            loss = criterion(out.F.squeeze(), labels)
             loss.backward()
             optimizer.step()
+            print(f'{loss=}')
 
             accum_loss += loss.item()
             accum_iter += 1
@@ -122,10 +118,18 @@ def main(args):
                 )
                 accum_loss, accum_iter = 0, 0
 
+
 def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
     return inseg_global, global_model
+
+
+def labels_to_logit_shape(labels: torch.Tensor):
+    labels_new = torch.zeros((len(labels), 2))
+    labels_new[labels[:, 0] == 0, 0] = 1
+    labels_new[labels[:, 0] == 1, 1] = 1
+    return labels_new
 
 
 if __name__ == '__main__':

@@ -22,16 +22,13 @@ class DataLoader:
 
         # self.cache_path = os.path.join(data_path, "dataloader_cache")
         self.cache_path = os.path.join(data_path, "dataloader_cache_ppo" + str(points_per_object) + "_ca" + str(click_area) + ".pkl")
-        print(f"Cache path: {self.cache_path}")
-
 
         # Load from cache
         if os.path.exists(self.cache_path):
             if force:
                 os.remove(self.cache_path)
             else:
-                with open(self.cache_path, 'rb') as f:
-                    self.data = pickle.load(f)
+                self.data = self.load_from_cache(self.cache_path)
                 return
 
         self.data = {}
@@ -125,3 +122,14 @@ class DataLoader:
                   for cloud in clouds]
         batch = np.stack(clouds, axis=0)
         return torch.tensor(batch, dtype=dtype)
+
+    def new_epoch(self):
+        assert os.path.exists(self.cache_path), "Cache not found."
+        self.data = self.load_from_cache(self.cache_path)
+
+    @staticmethod
+    def load_from_cache(cache_path):
+        with open(cache_path, 'rb') as f:
+            data = pickle.load(f)
+        return data
+
