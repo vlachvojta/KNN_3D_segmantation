@@ -97,7 +97,7 @@ def main(args):
             if not train_batch: break
 
             if train_step % args.test_step == 0:
-                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[:args.test_step]) / args.test_step:.2f}'
+                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}'
                       f', time: {time.time() - test_step_time:.2f} seconds')
                 val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 val_ious.append(val_iou)
