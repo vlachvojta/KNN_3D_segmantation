@@ -87,6 +87,7 @@ def main(args):
     val_ious, train_losses = [], []
     voxel_size = 0.05  # TODO get voxel size from args
     test_step_time = time.time()
+    start_time = time.time()
 
     for epoch in range(args.max_epochs):
         train_dataloader.new_epoch()
@@ -98,7 +99,9 @@ def main(args):
 
             if train_step % args.test_step == 0:
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}'
-                      f', time: {time.time() - test_step_time:.2f} seconds')
+                      f', time of test_ste: {time.time() - test_step_time:.2f} s, '
+                      f'time from start: {time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))}')
+                # print time from start in hours, minutes, seconds
                 val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 val_ious.append(val_iou)
                 plot_stats(train_losses, val_ious, train_step)
