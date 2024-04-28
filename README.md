@@ -10,9 +10,11 @@ Ning Xu, Brian Price, Scott Cohen, Jimei Yang, and Thomas Huang. Deep Interactiv
 ## TODOs
 - [x] vybrat dataset - zatím S3DIS
 - [x] vybrat prostředí experimentu (pyTorch, open3DML, kombinace)
-- [ ] Připravit kód na rozdělení trénovací a validační sady (80 %-20 % třeba) co nejvíc náhodně (ne vybrat jednu místnost)
+- [x] Připravit kód na rozdělení trénovací a validační sady (80 %-20 % třeba) co nejvíc náhodně (ne vybrat jednu místnost)
 - [ ] Renderování výstupů modelu do png BEZ vyskakování okna (viz [compute_iou.py#L60](https://github.com/vlachvojta/KNN_3D_segmentation/blob/2c2d186890498958ded9e31cccc7837634dd3231/src/compute_iou.py#L60)
   - pak přidat několik pohledů z různých stran, pokud možno
+- [ ] trénování pro celý batch a ne jen jednotlivý point cloudy
+- [ ] uložení, nahrátí modelu, testování na validační sadě (infrastruktura kolem základního trénování)
 - [ ] Zkusit různé architektury (grafové sítě, PointNet++ spešl síť)
 
 ## Datasety
