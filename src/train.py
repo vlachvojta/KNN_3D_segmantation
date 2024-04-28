@@ -46,7 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted",
                         help="Source path (default: ../dataset/S3DIS_converted")
-    # TODO add args for dataset points per object, voxel size, click area
+    # TODO add args for dataset: points per object, voxel size, click area (define defaults)
     parser.add_argument("-m", "--pretrained_model_path", required=True,
                         help="Pretrained model path (required)")
     parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_basic',
@@ -69,8 +69,8 @@ def parse_args():
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # TODO if --output_dir exists, LOAD model FROM CHECKPOINT
-    # load model from path
+    # TODO if --output_dir exists, load model from there, otherwise load from --pretrained_model_path
+    # load model from --pretrained_model_path
     inseg_model_class, inseg_global_model = get_model(args.pretrained_model_path, 'cpu') #, device)
 
     optimizer = optim.SGD(
@@ -97,7 +97,7 @@ def main(args):
             if not train_batch: break
 
             if train_step % args.test_step == 0:
-                print(f'\nEpoch: {epoch} train_step: {train_step}, Loss: {sum(train_losses[:args.test_step]) / args.test_step}'
+                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[:args.test_step]) / args.test_step:.2f}'
                       f', time: {time.time() - test_step_time:.2f} seconds')
                 val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 val_ious.append(val_iou)
@@ -155,7 +155,7 @@ def create_input(feats, coords, voxel_size: int = 0.05):
 def test_step(model_class, model, val_dataloader):
     model.eval()
 
-    # TODO do forward pass for every data from eval set, get accuracy statistic
+    # TODO do forward pass (model_class.prediction) for every data from eval set, get mean_iou and return it
     ious = []
     # while True:
     #     batch = val_dataloader.get_batch(args.batch_size)
@@ -173,12 +173,14 @@ def test_step(model_class, model, val_dataloader):
 
     return sum(ious) / len(ious) if len(ious) > 0 else 0
 
-def save_step(inseg_global_model, path, train_step):
-    ...
-    # TODO save model checkpoint to os.path.join(path, f'model_{train_step}.pth')
+def save_step(model, path, train_step):
+    export_path = os.path.join(path, f'model_{train_step}.pth')
+    torch.save(model.state_dict(), export_path)
+    print(f'Model saved to: {export_path}')
 
 def plot_stats(train_losses, val_ious, train_step):
-    print(f'\nTest step. Train losses: {train_losses}') #, Val IoUs: {val_ious}')
+    train_losses_str = ', '.join([f'{loss:.2f}' for loss in train_losses])
+    print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
     # TODO produce chart of train_losses and val_ious
     # TODO also save train_losses and val_ious to .npy or something for future reference
 
