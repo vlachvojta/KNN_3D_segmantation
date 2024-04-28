@@ -30,6 +30,7 @@ class DataLoader:
                 os.remove(self.cache_path)
             else:
                 self.data = self.load_from_cache(self.cache_path)
+                self.len = self.remaining_batches()
                 return
 
         self.data = {}
@@ -54,6 +55,8 @@ class DataLoader:
 
                 self.data[file].append(points)
                 offset += len(group)
+
+        self.len = self.remaining_batches()
 
         # Save to cache
         with open(self.cache_path, 'wb') as f:
@@ -128,6 +131,13 @@ class DataLoader:
     def new_epoch(self):
         assert os.path.exists(self.cache_path), "Cache not found."
         self.data = self.load_from_cache(self.cache_path)
+        
+    def remaining_batches(self):
+        # Returns the number of remaining batches
+        return sum(len(area) for areas in self.data.values() for area in areas)
+    
+    def __len__(self):
+        return self.len
 
     @staticmethod
     def load_from_cache(cache_path):
