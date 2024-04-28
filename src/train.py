@@ -28,6 +28,7 @@
 import argparse
 import numpy as np
 import time
+import sys
 
 import torch
 import torch.optim as optim
@@ -40,13 +41,15 @@ import utils
 
 
 def parse_args():
+    print(sys.argv)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted",
                         help="Source path (default: ../dataset/S3DIS_converted")
     # TODO add args for dataset points per object, voxel size, click area
     parser.add_argument("-m", "--pretrained_model_path", required=True,
                         help="Pretrained model path (required)")
-    parser.add_argument('-o', '--output_dir', type=str, default='../training/basic',
+    parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_basic',
                         help='Where to store training progress.')
     parser.add_argument('-s', '--save_step', type=int, default=50,
                         help='How often to save checkpoint')
@@ -59,7 +62,9 @@ def parse_args():
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    print(f'args: {args}')
+    return args
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -113,7 +118,6 @@ def main(args):
             loss = criterion(out.F.squeeze(), labels)
             loss.backward()
             optimizer.step()
-            print(f'loss: {loss.item():.2f}')
             train_losses.append(loss.item())
             train_step+=1
             print('.', end='', flush=True)
