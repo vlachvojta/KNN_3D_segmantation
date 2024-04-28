@@ -321,17 +321,13 @@ class InteractiveSegmentationModel(object):
             device=device
 
         )  # .to(device)
-        print(f'sinput.F.shape: {sinput.F.shape}')
         model.eval()
         logits = model(sinput)
-        print('logits.F.shape:', logits.F.shape)
         logits = logits.slice(sinput)
-        print(f'logits.F.shape after slice: {logits.F.shape}')
         # get the prediction on the input tensor field
         # out_field = soutput.slice(in_field)
         logits = logits.F
         _, pred = logits.max(1)
-        print(f'pred.shape: {pred.shape}')
 
         # pred = pred.cpu().numpy()
         return pred, logits

@@ -12,11 +12,12 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False, verbose=True):
         self.data_path = data_path
         self.points_per_object = points_per_object
         self.click_area = click_area
         self.force = force
+        self.verbose = verbose
 
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
@@ -69,7 +70,8 @@ class DataLoader:
             random_object = random.randint(0, len(self.data[random_area])-1)
             random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
 
-            print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
+            if self.verbose:
+                print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
 
             # Load pointcloud and simulate positive click in maskPositive
             pcd = o3d.t.io.read_point_cloud(random_area)
