@@ -1,4 +1,5 @@
 import os
+import time
 
 import open3d as o3d
 
@@ -6,6 +7,10 @@ import open3d as o3d
 def ensure_folder_exists(folder_path):
     if not os.path.exists(os.path.dirname(folder_path)):
         os.makedirs(folder_path)
+
+
+def timeit(start_time) -> str:
+    return time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
 
 
 def remove_file_suffix(file_path):

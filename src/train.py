@@ -25,11 +25,12 @@
 # Networks", CVPR'19 (https://arxiv.org/abs/1904.08755) if you use any part
 # of the code.
 
-import argparse
-import numpy as np
-import time
+import os
 import sys
+import argparse
+import time
 
+import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
@@ -98,9 +99,9 @@ def main(args):
             if not train_batch: break
 
             if train_step % args.test_step == 0:
-                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}'
-                      f', time of test_ste: {time.time() - test_step_time:.2f} s, '
-                      f'time from start: {time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))}')
+                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
+                      f'time of test_step: {utils.timeit(test_step_time)}, '
+                      f'time from start: {utils.timeit(start_time)}')
                 # print time from start in hours, minutes, seconds
                 val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 val_ious.append(val_iou)
@@ -182,8 +183,9 @@ def save_step(model, path, train_step):
     print(f'Model saved to: {export_path}')
 
 def plot_stats(train_losses, val_ious, train_step):
-    train_losses_str = ', '.join([f'{loss:.2f}' for loss in train_losses])
+    train_losses_str = ', '.join([f'{loss:.5f}' for loss in train_losses])
     print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
+
     # TODO produce chart of train_losses and val_ious
     # TODO also save train_losses and val_ious to .npy or something for future reference
 
