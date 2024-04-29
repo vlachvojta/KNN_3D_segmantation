@@ -57,11 +57,12 @@ def parse_args():
     parser.add_argument('-t', '--test_step', type=int, default=10,
                         help='How often to test model with validation set')
 
-    parser.add_argument('-b', '--batch_size', default=1, type=int)
+    parser.add_argument('-b', '--batch_size', default=32, type=int)
     parser.add_argument('--max_epochs', default=10, type=int)
-    parser.add_argument('--lr', default=0.1, type=float)
-    parser.add_argument('--momentum', type=float, default=0.9)
-    parser.add_argument('--weight_decay', type=float, default=1e-4)
+    parser.add_argument('--lr', default=0.001, type=float)
+    # These need very delicate tuning and original values are probably not appropriate for this task
+    # parser.add_argument('--momentum', type=float, default=0.9)  
+    # parser.add_argument('--weight_decay', type=float, default=1e-4)  
 
     args = parser.parse_args()
     print(f'args: {args}')
@@ -77,12 +78,20 @@ def main(args):
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
         lr=args.lr,
-        momentum=args.momentum,
-        weight_decay=args.weight_decay)
+        # momentum=args.momentum,
+        # weight_decay=args.weight_decay)
+    )
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
-    train_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
+    train_dataset = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
+    # train_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
     val_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5)  # TODO change dataset_path to validation set
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        collate_fn=ME.utils.batch_sparse_collate,)
+        # num_workers=1)
 
     train_step = 0  # TODO get number of already trained steps if loading trained checkpoint
     val_ious, train_losses = [], []
@@ -91,12 +100,12 @@ def main(args):
     start_time = time.time()
 
     for epoch in range(args.max_epochs):
-        train_dataloader.new_epoch()
+        train_dataset.new_epoch()  # TODO test if this works on a smaller dataset
         epoch_time = time.time()
+        train_iter = iter(train_dataloader)
+        inseg_global_model.train()
 
-        while True:  # get new batches until they run out
-            train_batch = train_dataloader.get_batch(args.batch_size)
-            if not train_batch: break
+        for train_batch in train_iter:
 
             if train_step % args.test_step == 0:
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
@@ -112,16 +121,70 @@ def main(args):
                 save_step(inseg_global_model, args.output_dir, train_step)
 
             coords, feats, labels = train_batch
-            sinput = create_input(feats, coords, voxel_size)
             labels = labels_to_logit_shape(labels)
+            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+            sinput = ME.SparseTensor(feats.float(), coords)
+            # print(f'sinput.F.shape: {sinput.F.shape}')
 
-            inseg_global_model.train()
-            out = inseg_global_model(sinput).slice(sinput)
-
+            out = inseg_global_model(sinput)
+            # print(f'outputs: {out.F.shape=}\n')
+            out = out.slice(sinput)
+            # print(f'outputs: {out.F.shape=}\n')
             optimizer.zero_grad()
-            loss = criterion(out.F.squeeze(), labels)
+            loss = criterion(out.F.squeeze(), labels.float())
             loss.backward()
             optimizer.step()
+            train_losses.append(loss.item())
+            train_step+=1
+            print('.', end='', flush=True)
+
+            # coords, feats, labels = train_batch
+            # labels = labels_to_logit_shape(labels)
+            # # print(f'coords: {coords.shape=}, feats: {feats.shape=}, labels: {labels.shape=}')
+
+            # coords = tuple(coords)
+            # feats = tuple(feats)
+            # labels = tuple(labels)
+            # print(f'coords: ({type(coords)}) {len(coords)}, feats: ({type(feats)}) {len(feats)}, labels: ({type(labels)}) {len(labels)}')
+            # print(f'coords[0]: ({type(coords[0])}) {coords[0].shape}, feats[0]: ({type(feats[0])}) {feats[0].shape}, labels[0]: ({type(labels[0])}) {labels[0].shape}')
+
+            # coords_batch, feats_batch, labels_batch = [], [], []
+
+            # # Generate batched coordinates
+            # coords_batch = ME.utils.batched_coordinates(coords)
+
+            # # Concatenate all lists
+            # feats_batch = torch.from_numpy(np.concatenate(feats, 0)).float()
+            # labels_batch = torch.from_numpy(np.concatenate(labels, 0))
+
+            # print(f'coords_batch: {coords_batch.shape=}, feats_batch: {feats_batch.shape=}, labels_batch: {labels_batch.shape=}')
+
+            # print('Exiting'); exit(0)
+
+            # discrete_coords, unique_feats, unique_labels = ME.utils.sparse_quantize(
+            #     coordinates=coords,
+            #     features=feats,
+            #     labels=labels,
+            #     quantization_size=voxel_size,
+            #     ignore_label=-100)
+
+            # print(f'discrete_coords: {discrete_coords.shape=}, unique_feats: {unique_feats.shape=}, unique_labels: {unique_labels.shape=}')
+
+            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+            # coords, feats, labels = ME.utils.batch_sparse_collate([coords, feats, labels])
+            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+
+
+            # sinput = create_input(feats, coords, voxel_size)
+            # labels = labels_to_logit_shape(labels)
+
+            # inseg_global_model.train()
+            # out = inseg_global_model(sinput).slice(sinput)
+
+            # optimizer.zero_grad()
+            # loss = criterion(out.F.squeeze(), labels)
+            # loss.backward()
+            # optimizer.step()
             train_losses.append(loss.item())
             train_step+=1
             print('.', end='', flush=True)
@@ -135,26 +198,43 @@ def get_model(pretrained_weights_file, device):
 
 def labels_to_logit_shape(labels: torch.Tensor):
     if len(labels.shape) == 3:
-        labels = labels[0]
+        return tuple(labels_to_logit_shape(label) for label in labels)
 
     labels_new = torch.zeros((len(labels), 2))
     labels_new[labels[:, 0] == 0, 0] = 1
     labels_new[labels[:, 0] == 1, 1] = 1
     return labels_new
 
-def create_input(feats, coords, voxel_size: int = 0.05):
-    if len(feats.shape) == 3:
-        feats = feats[0]
-    if len(coords.shape) == 3:
-        coords = coords[0]
+# def create_input(feats, coords, voxel_size: int = 0.05):
+#     # if len(feats.shape) == 3:
+#     #     feats = feats[0]
+#     # if len(coords.shape) == 3:
+#     #     coords = coords[0]
 
-    sinput = ME.SparseTensor(
-        features=feats,
-        coordinates=ME.utils.batched_coordinates([coords / voxel_size]),
-        quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
-        # device=device
-    )  # .to(device)
-    return sinput
+#     # print(f'coords: ({type(coords)}, {coords.shape}), feats: ({type(feats)}, {feats.shape})')
+
+#     # coords, feats = ME.utils.sparse_collate([coords], [feats])
+
+#     # print(f'coords: ({type(coords)}, {coords.shape}), feats: ({type(feats)}, {feats.shape})')
+
+#     sinput = ME.SparseTensor(
+#         features=feats,
+#         coordinates=coords, #ME.utils.batched_coordinates([coords / voxel_size]),
+#         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
+#         # device=device
+#     )
+
+#     # sinput = [ME.SparseTensor(
+#     #     features=feat,
+#     #     coordinates=ME.utils.batched_coordinates([coord / voxel_size]),
+#     #     quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
+#     #     # device=device
+#     # )  for feat, coord in zip(feats, coords)]
+#     # for i in range(len(sinput)):
+#     #     print(f'sinput[{i}]: {type(sinput[i])}, {sinput[i].F.shape=}, {sinput[i].C.shape=}, {sinput[i].C[0].shape=}, {sinput[i].C[1].shape=}')
+#     # print(f'sinput: {type(sinput)}, {sinput.F.shape=}, {sinput.C.shape=}, {sinput.C[0].shape=}, {sinput.C[1].shape=}')
+
+#     return sinput
 
 def test_step(model_class, model, val_dataloader):
     model.eval()

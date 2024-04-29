@@ -62,64 +62,67 @@ class DataLoader:
         with open(self.cache_path, 'wb') as f:
             pickle.dump(self.data, f)
 
-    def get_batch(self, batch_size=5):
-        coords_list = []
-        feats_list = []
-        label_list = []
+    def __getitem__(self, index):
+        return self.get_random_batch()
 
-        for _ in range(batch_size):
+    def get_random_batch(self):
+        # coords_list = []
+        # feats_list = []
+        # label_list = []
+
+        # for _ in range(batch_size):
             # Select random area, object and point
-            random_area = random.choice(list(self.data.keys()))
-            random_object = random.randint(0, len(self.data[random_area])-1)
-            random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
+        random_area = random.choice(list(self.data.keys()))
+        random_object = random.randint(0, len(self.data[random_area])-1)
+        random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
 
-            if self.verbose:
-                print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
+        if self.verbose:
+            print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
 
-            # Load pointcloud and simulate positive click in maskPositive
-            pcd = o3d.t.io.read_point_cloud(random_area)
-        
-            # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
-            # It's ugly but it works
-            pcd_tree = o3d.geometry.PointCloud()
-            pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
-            tree = o3d.geometry.KDTreeFlann(pcd_tree)
-            [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[self.data[random_area][random_object][random_point]], self.click_area)
-            for i in idx:
-                pcd.point.maskPositive[i] = 1
+        # Load pointcloud and simulate positive click in maskPositive
+        pcd = o3d.t.io.read_point_cloud(random_area)
+    
+        # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
+        # It's ugly but it works
+        pcd_tree = o3d.geometry.PointCloud()
+        pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
+        tree = o3d.geometry.KDTreeFlann(pcd_tree)
+        [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[self.data[random_area][random_object][random_point]], self.click_area)
+        for i in idx:
+            pcd.point.maskPositive[i] = 1
 
-            # Create a mask with the same group as the clicked point
-            group = pcd.point.group[self.data[random_area][random_object][random_point]].numpy()[0]
-            label = (pcd.point.group.numpy() == group)
-            label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
-            del pcd.point.group
+        # Create a mask with the same group as the clicked point
+        group = pcd.point.group[self.data[random_area][random_object][random_point]].numpy()[0]
+        label = (pcd.point.group.numpy() == group)
+        label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
+        del pcd.point.group
 
-            # Add tuple of pointcloud and label to batch
-            coords = pcd.point.positions.numpy()
-            feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
+        # Add tuple of pointcloud and label to batch
+        coords = pcd.point.positions.numpy()
+        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
 
-            coords_list.append(coords)
-            feats_list.append(feats)
-            label_list.append(label)
+        # coords_list.append(coords)
+        # feats_list.append(feats)
+        # label_list.append(label)
 
-            # Remove already simulated point from data
-            del self.data[random_area][random_object][random_point]
-            if not self.data[random_area][random_object]:
-                del self.data[random_area][random_object]
-                if not self.data[random_area]:
-                    del self.data[random_area]
-                    if not self.data:
-                        # Every point has been processed
-                        print("DataLoader: All points have been processed. Returning None.")
-                        return None
+        # Remove already simulated point from data
+        del self.data[random_area][random_object][random_point]
+        if not self.data[random_area][random_object]:
+            del self.data[random_area][random_object]
+            if not self.data[random_area]:
+                del self.data[random_area]
+                if not self.data:
+                    # Every point has been processed
+                    print("DataLoader: All points have been processed. Returning None.")
+                    return None
 
         # Concatenate the lists of numpy arrays
-        coords_batch = self.list_to_batch(coords_list, torch.float32)
-        feats_batch = self.list_to_batch(feats_list, torch.float32)
-        label_batch = self.list_to_batch(label_list, torch.uint8)
+        # coords_batch = self.list_to_batch(coords_list, torch.float32)
+        # feats_batch = self.list_to_batch(feats_list, torch.float32)
+        # label_batch = self.list_to_batch(label_list, torch.uint8)
 
         # Return the concatenated arrays
-        return coords_batch, feats_batch, label_batch
+        return coords, feats, label
 
     def list_to_batch(self, clouds, dtype):
         max_len = max([len(cloud) for cloud in clouds])
@@ -131,7 +134,7 @@ class DataLoader:
     def new_epoch(self):
         assert os.path.exists(self.cache_path), "Cache not found."
         self.data = self.load_from_cache(self.cache_path)
-        
+
     def remaining_batches(self):
         # Returns the number of remaining batches
         return sum(len(area) for areas in self.data.values() for area in areas)
