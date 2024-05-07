@@ -10,18 +10,22 @@ import utils
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--src_path", default="../dataset/S3DIS_converted",
-                        help="Source path (default: ../dataset/S3DIS_converted")
+    parser.add_argument("-s", "--src_path", default="../dataset/S3DIS_converted_separated/test",
+                        help="Source path (default: ../dataset/S3DIS_converted_separated/test)")
     parser.add_argument("-m", "--model_path", required=True,
                         help="Model path (required)")
+    parser.add_argument('-o', '--output_dir', type=str, default='../results',
+                        help='Where to store testing progress.')
     parser.add_argument("-3", "--show_3d", default=False, action='store_true',
                         help="Show 3D visualization of output models(default: False)")
     args = parser.parse_args()
 
-    print('Args:', args)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    utils.ensure_folder_exists(args.output_dir)
 
-    data_loader = DataLoader(args.src_path, points_per_object=5)
+    print('Args:', args)
+    device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.5)
 
     # load model from path
     inseg_model_class, inseg_global_model = get_model(args.model_path, device)
@@ -32,13 +36,13 @@ def main():
 
     while True:
         print(f'\nBatch {i}')
-        batch = data_loader.get_batch(1)
+        batch = data_loader.get_random_batch()
         if not batch:
             break
         coords, feats, labels = batch
-        coords = coords[0]
-        feats = feats[0]
-        labels = labels[0].float().long().to(device)
+        coords = torch.tensor(coords).float().to(device)
+        feats = torch.tensor(feats).float().to(device)
+        labels = torch.tensor(labels).long().to(device)
         print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
         print(f'inputs: feats({feats.shape})\n'
@@ -57,9 +61,10 @@ def main():
         if args.show_3d:
             o3d.visualization.draw_geometries([output_point_cloud])
 
-        utils.save_point_cloud_views(output_point_cloud, iou, i, '../results/')
+        utils.save_point_cloud_views(output_point_cloud, iou, i, args.output_dir)
 
         results.append(iou)
+        print(f'Mean iou so far: {sum(results) / len(results)}')
         i += 1
 
     # print result mean

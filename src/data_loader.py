@@ -37,7 +37,7 @@ class DataLoader:
 
         print(f'\nCreating DataLoader with points_per_object={points_per_object} and click_area={click_area}, processing {len([f for f in os.scandir(data_path)])} files.')
         # Process each area
-        for i, file in enumerate([f.path for f in os.scandir(data_path)]):
+        for i, file in enumerate([f.path for f in os.scandir(data_path) if f.path.endswith('.pcd')]):
             if verbose:
                 print(f"Processing {file}")
             else:
