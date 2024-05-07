@@ -60,9 +60,6 @@ def parse_args():
     parser.add_argument('-b', '--batch_size', default=32, type=int)
     parser.add_argument('--max_epochs', default=10, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
-    # These need very delicate tuning and original values are probably not appropriate for this task
-    # parser.add_argument('--momentum', type=float, default=0.9)  
-    # parser.add_argument('--weight_decay', type=float, default=1e-4)  
 
     args = parser.parse_args()
     print(f'args: {args}')
@@ -77,14 +74,10 @@ def main(args):
 
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
-        lr=args.lr,
-        # momentum=args.momentum,
-        # weight_decay=args.weight_decay)
-    )
+        lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
     train_dataset = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
-    # train_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
     val_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5)  # TODO change dataset_path to validation set
 
     train_dataloader = DataLoader(
@@ -99,6 +92,8 @@ def main(args):
     test_step_time = time.time()
     start_time = time.time()
 
+    print(f'Train steps in one epoch: {len(train_dataloader) // args.batch_size}')
+
     for epoch in range(args.max_epochs):
         train_dataset.new_epoch()  # TODO test if this works on a smaller dataset
         epoch_time = time.time()
@@ -111,7 +106,6 @@ def main(args):
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
                       f'time from start: {utils.timeit(start_time)}')
-                # print time from start in hours, minutes, seconds
                 val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 val_ious.append(val_iou)
                 plot_stats(train_losses, val_ious, train_step)
@@ -134,57 +128,6 @@ def main(args):
             loss = criterion(out.F.squeeze(), labels.float())
             loss.backward()
             optimizer.step()
-            train_losses.append(loss.item())
-            train_step+=1
-            print('.', end='', flush=True)
-
-            # coords, feats, labels = train_batch
-            # labels = labels_to_logit_shape(labels)
-            # # print(f'coords: {coords.shape=}, feats: {feats.shape=}, labels: {labels.shape=}')
-
-            # coords = tuple(coords)
-            # feats = tuple(feats)
-            # labels = tuple(labels)
-            # print(f'coords: ({type(coords)}) {len(coords)}, feats: ({type(feats)}) {len(feats)}, labels: ({type(labels)}) {len(labels)}')
-            # print(f'coords[0]: ({type(coords[0])}) {coords[0].shape}, feats[0]: ({type(feats[0])}) {feats[0].shape}, labels[0]: ({type(labels[0])}) {labels[0].shape}')
-
-            # coords_batch, feats_batch, labels_batch = [], [], []
-
-            # # Generate batched coordinates
-            # coords_batch = ME.utils.batched_coordinates(coords)
-
-            # # Concatenate all lists
-            # feats_batch = torch.from_numpy(np.concatenate(feats, 0)).float()
-            # labels_batch = torch.from_numpy(np.concatenate(labels, 0))
-
-            # print(f'coords_batch: {coords_batch.shape=}, feats_batch: {feats_batch.shape=}, labels_batch: {labels_batch.shape=}')
-
-            # print('Exiting'); exit(0)
-
-            # discrete_coords, unique_feats, unique_labels = ME.utils.sparse_quantize(
-            #     coordinates=coords,
-            #     features=feats,
-            #     labels=labels,
-            #     quantization_size=voxel_size,
-            #     ignore_label=-100)
-
-            # print(f'discrete_coords: {discrete_coords.shape=}, unique_feats: {unique_feats.shape=}, unique_labels: {unique_labels.shape=}')
-
-            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
-            # coords, feats, labels = ME.utils.batch_sparse_collate([coords, feats, labels])
-            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
-
-
-            # sinput = create_input(feats, coords, voxel_size)
-            # labels = labels_to_logit_shape(labels)
-
-            # inseg_global_model.train()
-            # out = inseg_global_model(sinput).slice(sinput)
-
-            # optimizer.zero_grad()
-            # loss = criterion(out.F.squeeze(), labels)
-            # loss.backward()
-            # optimizer.step()
             train_losses.append(loss.item())
             train_step+=1
             print('.', end='', flush=True)
