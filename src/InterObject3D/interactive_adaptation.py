@@ -309,9 +309,8 @@ class InteractiveSegmentationModel(object):
             print('*Using training clicks for debug!*')
         return feats
 
-    def prediction(self, feats, coords, model, device):
+    def prediction(self, feats, coords, model, device, voxel_size=0.05):
         #with torch.no_grad():
-        voxel_size = 0.05
         # Feed-forward pass and get the prediction
         sinput = ME.SparseTensor(
             features=feats,

@@ -25,7 +25,7 @@ def main():
     print('Args:', args)
     device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.5)
+    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.1)
 
     # load model from path
     inseg_model_class, inseg_global_model = get_model(args.model_path, device)

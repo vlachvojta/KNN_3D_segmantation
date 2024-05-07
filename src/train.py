@@ -49,6 +49,13 @@ def parse_args():
     parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted_separated/train",
                         help="Source dataset path. (default: ../dataset/S3DIS_converted_separated/train)")
     # TODO add args for dataset: points per object, voxel size, click area (define defaults)
+    parser.add_argument("-v", "--voxel_size", default=0.05, type=float,
+                        help="The size data points are converting to (default: 0.05)")
+    parser.add_argument("-p", "--points_per_object", default=5, type=int,
+                        help="Number of simulated click points per object in dataset (default: 5)")
+    parser.add_argument("-c", "--click_area", default=0.1, type=float,
+                        help="Area of the simulated click points. MUST BE LARGER THAN VOXEL SIZE (default: 0.1)")                    
+
     parser.add_argument("-m", "--pretrained_model_path", type=str, default=None,
                         help="Pretrained model path to start training with (default: None)")
     parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_test',
@@ -77,8 +84,8 @@ def main(args):
         lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
-    train_dataset = CustomDataLoader(args.dataset_path, points_per_object=5, verbose=False)
-    val_dataloader = CustomDataLoader(args.dataset_path, points_per_object=5)  # TODO change dataset_path to validation set
+    train_dataset = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
+    val_dataloader = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area) # TODO use validation set in test_step
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -87,7 +94,7 @@ def main(args):
         # num_workers=1)
 
     val_ious, train_losses = [], []
-    voxel_size = 0.05  # TODO get voxel size from args
+    voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
     test_step_time = time.time()
     start_time = time.time()
 
@@ -95,7 +102,7 @@ def main(args):
     print(f'Training started at {time.ctime()}\n')
 
     for epoch in range(args.max_epochs):
-        train_dataset.new_epoch()  # TODO test if this works on a smaller dataset
+        train_dataset.new_epoch()  # TODO test if this works (test on a smaller dataset)
         epoch_time = time.time()
         train_iter = iter(train_dataloader)
         inseg_global_model.train()
