@@ -46,12 +46,12 @@ def parse_args():
     print(sys.argv)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted",
-                        help="Source path (default: ../dataset/S3DIS_converted")
+    parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted_separated/train",
+                        help="Source dataset path. (default: ../dataset/S3DIS_converted_separated/train)")
     # TODO add args for dataset: points per object, voxel size, click area (define defaults)
     parser.add_argument("-m", "--pretrained_model_path", type=str, default=None,
                         help="Pretrained model path to start training with (default: None)")
-    parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_basic',
+    parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_test',
                         help='Where to store training progress.')
     parser.add_argument('-s', '--save_step', type=int, default=50,
                         help='How often to save checkpoint')

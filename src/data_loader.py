@@ -35,9 +35,15 @@ class DataLoader:
 
         self.data = {}
 
+        print(f'\nCreating DataLoader with points_per_object={points_per_object} and click_area={click_area}, processing {len([f for f in os.scandir(data_path)])} files.')
         # Process each area
-        for file in [f.path for f in os.scandir(data_path)]:
-            print(f"Processing {file}")
+        for i, file in enumerate([f.path for f in os.scandir(data_path)]):
+            if verbose:
+                print(f"Processing {file}")
+            else:
+                if i % 50 == 0 and i != 0:
+                    print('')
+                print(".", end="", flush=True)
             self.data[file] = []
 
             # Load pointcloud and split into groups (objects)
@@ -55,6 +61,7 @@ class DataLoader:
 
                 self.data[file].append(points)
                 offset += len(group)
+        print('')
 
         self.len = self.remaining_unique_elements()
 

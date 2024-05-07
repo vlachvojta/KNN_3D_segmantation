@@ -6,6 +6,7 @@ mkdir -p $OUTPUT_DIR
 
 # Train the model
 python -u train.py \
+    -d "../dataset/S3DIS_converted_separated/train" \
     -m $PRETRAINED_MODEL_PATH \
     -o $OUTPUT_DIR \
     -b 20 \
