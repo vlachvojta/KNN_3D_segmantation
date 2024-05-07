@@ -29,6 +29,7 @@ import os
 import sys
 import argparse
 import time
+import re
 
 import numpy as np
 import torch
@@ -48,8 +49,8 @@ def parse_args():
     parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted",
                         help="Source path (default: ../dataset/S3DIS_converted")
     # TODO add args for dataset: points per object, voxel size, click area (define defaults)
-    parser.add_argument("-m", "--pretrained_model_path", required=True,
-                        help="Pretrained model path (required)")
+    parser.add_argument("-m", "--pretrained_model_path", type=str, default=None,
+                        help="Pretrained model path to start training with (default: None)")
     parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_basic',
                         help='Where to store training progress.')
     parser.add_argument('-s', '--save_step', type=int, default=50,
@@ -68,9 +69,7 @@ def parse_args():
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # TODO if --output_dir exists, load model from there, otherwise load from --pretrained_model_path
-    # load model from --pretrained_model_path
-    inseg_model_class, inseg_global_model = get_model(args.pretrained_model_path, 'cpu') #, device)
+    inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, 'cpu') #, device)    
 
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
@@ -86,7 +85,6 @@ def main(args):
         collate_fn=ME.utils.batch_sparse_collate,)
         # num_workers=1)
 
-    train_step = 0  # TODO get number of already trained steps if loading trained checkpoint
     val_ious, train_losses = [], []
     voxel_size = 0.05  # TODO get voxel size from args
     test_step_time = time.time()
@@ -134,10 +132,24 @@ def main(args):
 
         print(f'\n\nEpoch {epoch} took {time.time() - epoch_time:.2f} seconds\n')
 
-def get_model(pretrained_weights_file, device):
+def get_model(pretrained_weights_file, output_dir, device):
+    # try to find model in output_dir
+    models = [re.match(r'model_(\d+).pth', f).groups()[0] for f in os.listdir(output_dir) 
+              if re.match(r'model_(\d+).pth', f)]
+
+    trained_steps = 0
+    if models:
+        trained_steps = max([int(model) for model in models])
+        pretrained_weights_file = os.path.join(output_dir, f'model_{trained_steps}.pth')
+
+    if not pretrained_weights_file or not os.path.exists(pretrained_weights_file):
+        raise FileNotFoundError(f'Pretrained model not found at {pretrained_weights_file}')
+        
+
+    print(f'Loading model from {pretrained_weights_file}')
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
-    return inseg_global, global_model
+    return inseg_global, global_model, trained_steps
 
 def labels_to_logit_shape(labels: torch.Tensor):
     if len(labels.shape) == 3:
