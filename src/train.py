@@ -58,7 +58,7 @@ def parse_args():
     parser.add_argument('-t', '--test_step', type=int, default=10,
                         help='How often to test model with validation set')
 
-    parser.add_argument('-b', '--batch_size', default=32, type=int)
+    parser.add_argument('-b', '--batch_size', default=20, type=int)
     parser.add_argument('--max_epochs', default=10, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
 
@@ -68,8 +68,9 @@ def parse_args():
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {device}')
 
-    inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, 'cpu') #, device)    
+    inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, device)
 
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
@@ -82,7 +83,7 @@ def main(args):
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        collate_fn=ME.utils.batch_sparse_collate,)
+        collate_fn=ME.utils.batch_sparse_collate)
         # num_workers=1)
 
     val_ious, train_losses = [], []
@@ -90,7 +91,8 @@ def main(args):
     test_step_time = time.time()
     start_time = time.time()
 
-    print(f'Train steps in one epoch: {len(train_dataloader) // args.batch_size}')
+    print(f'Train steps in one epoch: {train_dataset.remaining_unique_elements() // args.batch_size}')
+    print(f'Training started at {time.ctime()}\n')
 
     for epoch in range(args.max_epochs):
         train_dataset.new_epoch()  # TODO test if this works on a smaller dataset
@@ -99,7 +101,6 @@ def main(args):
         inseg_global_model.train()
 
         for train_batch in train_iter:
-
             if train_step % args.test_step == 0:
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
@@ -114,16 +115,13 @@ def main(args):
 
             coords, feats, labels = train_batch
             labels = labels_to_logit_shape(labels)
-            # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
-            sinput = ME.SparseTensor(feats.float(), coords)
-            # print(f'sinput.F.shape: {sinput.F.shape}')
+            labels = labels.float().to(device)
+            sinput = ME.SparseTensor(feats.float(), coords, device=device)
 
             out = inseg_global_model(sinput)
-            # print(f'outputs: {out.F.shape=}\n')
             out = out.slice(sinput)
-            # print(f'outputs: {out.F.shape=}\n')
             optimizer.zero_grad()
-            loss = criterion(out.F.squeeze(), labels.float())
+            loss = criterion(out.F.squeeze(), labels)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
@@ -144,7 +142,6 @@ def get_model(pretrained_weights_file, output_dir, device):
 
     if not pretrained_weights_file or not os.path.exists(pretrained_weights_file):
         raise FileNotFoundError(f'Pretrained model not found at {pretrained_weights_file}')
-        
 
     print(f'Loading model from {pretrained_weights_file}')
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)

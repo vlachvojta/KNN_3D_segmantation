@@ -30,7 +30,7 @@ class DataLoader:
                 os.remove(self.cache_path)
             else:
                 self.data = self.load_from_cache(self.cache_path)
-                self.len = self.remaining_batches()
+                self.len = self.remaining_unique_elements()
                 return
 
         self.data = {}
@@ -56,7 +56,7 @@ class DataLoader:
                 self.data[file].append(points)
                 offset += len(group)
 
-        self.len = self.remaining_batches()
+        self.len = self.remaining_unique_elements()
 
         # Save to cache
         with open(self.cache_path, 'wb') as f:
@@ -135,10 +135,9 @@ class DataLoader:
         assert os.path.exists(self.cache_path), "Cache not found."
         self.data = self.load_from_cache(self.cache_path)
 
-    def remaining_batches(self):
-        # Returns the number of remaining batches
+    def remaining_unique_elements(self):
         return sum(len(area) for areas in self.data.values() for area in areas)
-    
+
     def __len__(self):
         return self.len
 

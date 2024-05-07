@@ -281,7 +281,6 @@ class InteractiveSegmentationModel(object):
                     map_location = 'cpu'
                     print('Cuda not found, using CPU')
                     model_dict = torch.load(weights, map_location)  # which one is correct??The 14
-
                 else:
                     map_location = None
                     model_dict = torch.load(weights, map_location)  # which one is correct??The 14
@@ -319,7 +318,6 @@ class InteractiveSegmentationModel(object):
             coordinates=ME.utils.batched_coordinates([coords / voxel_size]),
             quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
             device=device
-
         )  # .to(device)
         model.eval()
         logits = model(sinput)
