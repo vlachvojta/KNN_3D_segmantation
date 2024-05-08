@@ -36,6 +36,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import MinkowskiEngine as ME
+import matplotlib.pyplot as plt
 
 from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
 from data_loader import DataLoader as CustomDataLoader
@@ -69,7 +70,12 @@ def parse_args():
                         help='How often to save checkpoint')
     parser.add_argument('-t', '--test_step', type=int, default=10,
                         help='How often to test model with validation set')
-
+    parser.add_argument('-g', '--stats_path', type=str, default='../stats',
+                        help='Where to store training stats')
+    parser.add_argument('-sl', '--saved_loss', type=str, default=None,
+                        help='Path to saved training loss data from previous training')
+    parser.add_argument('-si', '--saved_ious', type=str, default=None,
+                        help='Path to saved IOU data from previous training')
     parser.add_argument('-b', '--batch_size', default=20, type=int)
     parser.add_argument('--max_epochs', default=10, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
@@ -98,7 +104,7 @@ def main(args):
         collate_fn=ME.utils.batch_sparse_collate)
         # num_workers=1)
 
-    val_ious, train_losses = [], []
+    train_losses, val_ious = load_stats(args.saved_loss, args.saved_ious)
     voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
     test_step_time = time.time()
     start_time = time.time()
@@ -126,7 +132,7 @@ def main(args):
                             'show_3d': False}
                 val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
-                plot_stats(train_losses, val_ious, train_step)
+                plot_stats(train_losses, val_ious, train_step, args.stats_path)
                 test_step_time = time.time()
 
             if train_step % args.save_step == 0:
@@ -166,6 +172,14 @@ def get_model(pretrained_weights_file, output_dir, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
     return inseg_global, global_model, trained_steps
+
+def load_stats(saved_loss, saved_ious):
+    if (saved_loss == None or saved_ious == None):
+        return [], []
+    else:
+        losses = list(np.load(saved_loss))
+        ious = list(np.load(saved_ious))
+        return losses, ious
 
 def labels_to_logit_shape(labels: torch.Tensor):
     if len(labels.shape) == 3:
@@ -207,38 +221,33 @@ def labels_to_logit_shape(labels: torch.Tensor):
 
 #     return sinput
 
-# def test_step(model_class, model, val_dataloader):
-#     model.eval()
-
-#     # TODO do forward pass (model_class.prediction) for every data from eval set, get mean_iou and return it
-#     ious = []
-#     # while True:
-#     #     batch = val_dataloader.get_batch(args.batch_size)
-#     #     if not train_batch: break
-
-#     #     coords, feats, labels = batch
-#     #     coords = coords[0]
-#     #     ...
-
-#     #     pred = model_class.prediction(feats, coords, model)
-#     #     iou = model_class.mean_iou(pred, labels)
-#     #     ious.append(iou)
-
-#     # TODO export few examples of rendered result images using utils.save_point_cloud_views
-
-#     return sum(ious) / len(ious) if len(ious) > 0 else 0
-
 def save_step(model, path, train_step):
     export_path = os.path.join(path, f'model_{train_step}.pth')
     torch.save(model.state_dict(), export_path)
     print(f'Model saved to: {export_path}')
 
-def plot_stats(train_losses, val_ious, train_step):
+def plot_stats(train_losses, val_ious, train_step, graphs_path):
     train_losses_str = ', '.join([f'{loss:.5f}' for loss in train_losses])
     print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
 
-    # TODO produce chart of train_losses and val_ious
-    # TODO also save train_losses and val_ious to .npy or something for future reference
+    fig, ax = plt.subplots(2, 2)
+    for i in range(2):
+        ax[0, i].plot(train_losses)
+        ax[0, i].set_title('Train losses')
+        ax[0, i].set_xlabel('Trained steps')
+        ax[1, i].plot(val_ious)
+        ax[1, i].set_title('Validation IOU')
+        ax[1, i].set_xlabel('Test steps')
+
+    ax[0, 0].set_yscale('log')
+    ax[1, 0].set_yscale('log')
+    plt.tight_layout()
+    print(f'Saving losses to {os.path.join(graphs_path, "losses.png")}')
+    plt.savefig(os.path.join(graphs_path, 'losses.png'))
+    plt.clf()
+
+    np.save(os.path.join(graphs_path, 'train_losses.npy'), train_losses)
+    np.save(os.path.join(graphs_path, 'val_ious.npy'), val_ious)
 
 if __name__ == '__main__':
     main(parse_args())

@@ -86,7 +86,7 @@ def main(args):
 
     # print result mean
     print(f'Mean IoU: {sum(results) / len(results)}')
-
+    return sum(results) / len(results) if len(results) > 0 else 0
 
 def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
