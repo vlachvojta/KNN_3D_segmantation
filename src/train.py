@@ -31,6 +31,10 @@ import argparse
 import time
 import re
 
+import cProfile  # Profiling
+
+import pstats  # Profiling
+
 import numpy as np
 import torch
 import torch.optim as optim
@@ -73,8 +77,8 @@ def parse_args():
     return args
 
 def main(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # device = 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
     print(f'Using device: {device}')
 
     inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, device)
@@ -98,10 +102,14 @@ def main(args):
     test_step_time = time.time()
     start_time = time.time()
 
+    training = True
+
     print(f'Train steps in one epoch: {train_dataset.remaining_unique_elements() // args.batch_size}')
     print(f'Training started at {time.ctime()}\n')
 
     for epoch in range(args.max_epochs):
+        if not training:
+            break
         train_dataset.new_epoch()  # TODO test if this works (test on a smaller dataset)
         epoch_time = time.time()
         train_iter = iter(train_dataloader)
@@ -136,6 +144,10 @@ def main(args):
             train_losses.append(loss.item())
             train_step+=1
             print('.', end='', flush=True)
+
+            if train_step > 60:
+                training = False
+                break
 
         print(f'\n\nEpoch {epoch} took {time.time() - epoch_time:.2f} seconds\n')
 
@@ -243,4 +255,11 @@ def plot_stats(train_losses, val_ious, train_step):
     # TODO also save train_losses and val_ious to .npy or something for future reference
 
 if __name__ == '__main__':
-    main(parse_args())
+    with cProfile.Profile() as profile:
+        main(parse_args())
+
+    # Profiling
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    results.print_stats()
+    results.dump_stats('stats.prof')

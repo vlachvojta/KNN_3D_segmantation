@@ -74,60 +74,20 @@ class DataLoader:
         return self.get_random_batch()
 
     def get_random_batch(self):
-        # coords_list = []
-        # feats_list = []
-        # label_list = []
-
-        # for _ in range(batch_size):
-            # Select random area, object and point
-        random_area = random.choice(list(self.data.keys()))
-        random_object = random.randint(0, len(self.data[random_area])-1)
-        random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
-
-        if self.verbose:
-            print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
-
+        random_area, random_object, random_point = self.choose_random_point()
+        
         # Load pointcloud and simulate positive click in maskPositive
         pcd = o3d.t.io.read_point_cloud(random_area)
-    
-        # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
-        # It's ugly but it works
-        pcd_tree = o3d.geometry.PointCloud()
-        pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
-        tree = o3d.geometry.KDTreeFlann(pcd_tree)
-        [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[self.data[random_area][random_object][random_point]], self.click_area)
-        for i in idx:
-            pcd.point.maskPositive[i] = 1
 
-        # Create a mask with the same group as the clicked point
-        group = pcd.point.group[self.data[random_area][random_object][random_point]].numpy()[0]
-        label = (pcd.point.group.numpy() == group)
-        label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
-        del pcd.point.group
+        pcd = self.create_ranom_click(pcd, random_area, random_object, random_point)
 
-        # Add tuple of pointcloud and label to batch
-        coords = pcd.point.positions.numpy()
-        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1, dtype=np.float32)
+        pcd, label = self.create_mask(pcd, random_area, random_object, random_point)
 
-        # coords_list.append(coords)
-        # feats_list.append(feats)
-        # label_list.append(label)
+        coords, feats = self.concatenate_features(pcd)
 
-        # Remove already simulated point from data
-        del self.data[random_area][random_object][random_point]
-        if not self.data[random_area][random_object]:
-            del self.data[random_area][random_object]
-            if not self.data[random_area]:
-                del self.data[random_area]
-                if not self.data:
-                    # Every point has been processed
-                    print("DataLoader: All points have been processed. Returning None.")
-                    return None
-
-        # Concatenate the lists of numpy arrays
-        # coords_batch = self.list_to_batch(coords_list, torch.float32)
-        # feats_batch = self.list_to_batch(feats_list, torch.float32)
-        # label_batch = self.list_to_batch(label_list, torch.uint8)
+        all_points_processed = self.remove_simulated_point(random_area, random_object, random_point)
+        if all_points_processed:
+            return None
 
         if self.normalize_colors:
             feats[:, :3] = feats[:, :3] / 255
@@ -158,3 +118,56 @@ class DataLoader:
             data = pickle.load(f)
         return data
 
+    def remove_simulated_point(self, random_area, random_object, random_point):
+        # Remove already simulated point from data
+        del self.data[random_area][random_object][random_point]
+        if not self.data[random_area][random_object]:
+            del self.data[random_area][random_object]
+            if not self.data[random_area]:
+                del self.data[random_area]
+                if not self.data:
+                    # Every point has been processed
+                    print("DataLoader: All points have been processed. Returning None.")
+                    return True
+        return False
+
+    def choose_random_point(self):
+        random_area = random.choice(list(self.data.keys()))
+        random_object = random.randint(0, len(self.data[random_area])-1)
+        random_point = random.randint(0, len(self.data[random_area][random_object]) - 1)
+
+        if self.verbose:
+            print(f"Simulated click - {random_area.split('/')[-1]}/object {random_object}/point {self.data[random_area][random_object][random_point]}")
+
+        return random_area, random_object, random_point
+
+    def create_ranom_click(self, pcd, random_area, random_object, random_point):
+        # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
+        # It's ugly but it works
+        pcd_tree = o3d.geometry.PointCloud()
+        pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
+        tree = o3d.geometry.KDTreeFlann(pcd_tree)
+        [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[self.data[random_area][random_object][random_point]], self.click_area)
+        for i in idx:
+            pcd.point.maskPositive[i] = 1
+        
+        return pcd
+
+    def create_mask(self, pcd, random_area, random_object, random_point):
+        # Create a mask with the same group as the clicked point
+        group = pcd.point.group[self.data[random_area][random_object][random_point]].numpy()[0]
+        label = (pcd.point.group.numpy() == group)
+        label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
+        del pcd.point.group
+
+        # pcd.point.maskNegative = o3d.core.Tensor(np.logical_not(label), o3d.core.uint8, o3d.core.Device("CPU:0"))
+        # pcd.point.maskPositive = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0"))
+
+        return pcd, label
+
+    def concatenate_features(self, pcd):
+        # Add tuple of pointcloud and label to batch
+        coords = pcd.point.positions.numpy()
+        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1, dtype=np.float32)
+
+        return coords, feats
