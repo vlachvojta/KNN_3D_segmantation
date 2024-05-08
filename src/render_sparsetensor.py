@@ -37,7 +37,14 @@ def main(args):
 
     print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-    sinput = ME.SparseTensor(feats, coords, device=device)
+    voxel_size = 0.05
+    sinput = ME.SparseTensor(
+        features=feats,
+        coordinates=ME.utils.batched_coordinates([coords / voxel_size]),
+        quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
+        device=device
+    )
+    
     print(f'inputs: sinput.F({sinput.F.shape})\n'
           f'        sinput.C({sinput.C.shape})')
         
@@ -48,13 +55,13 @@ def render_sparsetensor(sinput):
     coords = sinput.C
     feats = sinput.F
     point_cloud = o3d.geometry.PointCloud()
-    point_cloud.points = o3d.utility.Vector3dVector(coords.numpy())
+    point_cloud.points = o3d.utility.Vector3dVector(coords.numpy()[:, 1:4])
 
     colors = feats.numpy()[:, :3] / 255
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1]  # maskPositive input BLUE
     point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
-    # TODO render point cloud
+    o3d.visualization.draw_geometries([point_cloud])
 
 
     
