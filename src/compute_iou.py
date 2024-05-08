@@ -7,8 +7,7 @@ from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
 from data_loader import DataLoader
 import utils
 
-
-def main():
+def parseargs():
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--src_path", default="../dataset/S3DIS_converted_separated/test",
                         help="Source path (default: ../dataset/S3DIS_converted_separated/test)")
@@ -18,18 +17,39 @@ def main():
                         help='Where to store testing progress.')
     parser.add_argument("-3", "--show_3d", default=False, action='store_true',
                         help="Show 3D visualization of output models(default: False)")
-    args = parser.parse_args()
+    parser.add_argument("-i", "--inseg_model", default=None)
+    parser.add_argument("-g", "--inseg_global", default=None)
+    return parser.parse_args()
 
-    utils.ensure_folder_exists(args.output_dir)
-
+def main(args):
+    if isinstance(args, dict):
+        src_path = args['src_path']
+        model_path = args['model_path']
+        output_dir = args['output_dir']
+        inseg_model = args['inseg_model']
+        inseg_global = args['inseg_global']
+        show_3d = args['show_3d']
+    else:
+        src_path = args.src_path
+        model_path = args.model_path
+        output_dir = args.output_dir
+        inseg_model = args.inseg_model
+        inseg_global = args.inseg_global
+        show_3d = args.show_3d
+    
+    utils.ensure_folder_exists(output_dir)
     print('Args:', args)
     device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.1)
+    data_loader = DataLoader(src_path, points_per_object=5, click_area=0.1)
 
     # load model from path
-    inseg_model_class, inseg_global_model = get_model(args.model_path, device)
-
+    if (inseg_model == None):
+        inseg_model_class, inseg_global_model = get_model(model_path, device)
+    else:
+        inseg_model_class = inseg_model
+        inseg_global_model = inseg_global
+    
     results = []
 
     i = 0
@@ -57,12 +77,9 @@ def main():
         print(f'iou: {iou}')
 
         output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
-
-        if args.show_3d:
+        if show_3d:
             o3d.visualization.draw_geometries([output_point_cloud])
-
-        utils.save_point_cloud_views(output_point_cloud, iou, i, args.output_dir)
-
+        utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir)
         results.append(iou)
         print(f'Mean iou so far: {sum(results) / len(results)}')
         i += 1
@@ -90,4 +107,5 @@ def get_output_point_cloud(coords, feats, labels, pred):
 
 
 if __name__ == "__main__":
-    main()
+    args = parseargs()
+    main(args)

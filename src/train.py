@@ -39,6 +39,7 @@ import MinkowskiEngine as ME
 
 from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
 from data_loader import DataLoader as CustomDataLoader
+import compute_iou
 import utils
 
 
@@ -48,6 +49,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dataset_path", default="../dataset/S3DIS_converted_separated/train",
                         help="Source dataset path. (default: ../dataset/S3DIS_converted_separated/train)")
+    parser.add_argument("-vd", "--val_dataset", default="../dataset/S3DIS_converted_separated/validation",
+                        help="Validation dataset path (default: ../dataset/S3DIS_converted_separated/validation")
     # TODO add args for dataset: points per object, voxel size, click area (define defaults)
     parser.add_argument("-v", "--voxel_size", default=0.05, type=float,
                         help="The size data points are converting to (default: 0.05)")
@@ -60,6 +63,8 @@ def parse_args():
                         help="Pretrained model path to start training with (default: None)")
     parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_test',
                         help='Where to store training progress.')
+    parser.add_argument('-l', '--validation_out', type=str, default='../val_results/',
+                        help='Where to store validation results.')
     parser.add_argument('-s', '--save_step', type=int, default=50,
                         help='How often to save checkpoint')
     parser.add_argument('-t', '--test_step', type=int, default=10,
@@ -85,7 +90,7 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
     train_dataset = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
-    val_dataloader = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area) # TODO use validation set in test_step
+    val_dataloader = CustomDataLoader(args.val_dataset, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -112,7 +117,14 @@ def main(args):
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
                       f'time from start: {utils.timeit(start_time)}')
-                val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
+                # val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
+                iou_args = {'src_path': args.val_dataset, 
+                            'model_path': " ", 
+                            'output_dir': args.validation_out, 
+                            'inseg_model': inseg_model_class, 
+                            'inseg_global': inseg_global_model,
+                            'show_3d': False}
+                val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
                 plot_stats(train_losses, val_ious, train_step)
                 test_step_time = time.time()
@@ -195,26 +207,26 @@ def labels_to_logit_shape(labels: torch.Tensor):
 
 #     return sinput
 
-def test_step(model_class, model, val_dataloader):
-    model.eval()
+# def test_step(model_class, model, val_dataloader):
+#     model.eval()
 
-    # TODO do forward pass (model_class.prediction) for every data from eval set, get mean_iou and return it
-    ious = []
-    # while True:
-    #     batch = val_dataloader.get_batch(args.batch_size)
-    #     if not train_batch: break
+#     # TODO do forward pass (model_class.prediction) for every data from eval set, get mean_iou and return it
+#     ious = []
+#     # while True:
+#     #     batch = val_dataloader.get_batch(args.batch_size)
+#     #     if not train_batch: break
 
-    #     coords, feats, labels = batch
-    #     coords = coords[0]
-    #     ...
+#     #     coords, feats, labels = batch
+#     #     coords = coords[0]
+#     #     ...
 
-    #     pred = model_class.prediction(feats, coords, model)
-    #     iou = model_class.mean_iou(pred, labels)
-    #     ious.append(iou)
+#     #     pred = model_class.prediction(feats, coords, model)
+#     #     iou = model_class.mean_iou(pred, labels)
+#     #     ious.append(iou)
 
-    # TODO export few examples of rendered result images using utils.save_point_cloud_views
+#     # TODO export few examples of rendered result images using utils.save_point_cloud_views
 
-    return sum(ious) / len(ious) if len(ious) > 0 else 0
+#     return sum(ious) / len(ious) if len(ious) > 0 else 0
 
 def save_step(model, path, train_step):
     export_path = os.path.join(path, f'model_{train_step}.pth')
