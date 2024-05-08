@@ -40,6 +40,8 @@ def main(args):
     sinput = ME.SparseTensor(feats, coords, device=device)
     print(f'inputs: sinput.F({sinput.F.shape})\n'
           f'        sinput.C({sinput.C.shape})')
+        
+    render_sparsetensor(sinput)
 
 
 def render_sparsetensor(sinput):
