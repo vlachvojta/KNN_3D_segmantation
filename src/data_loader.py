@@ -12,12 +12,13 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False, verbose=True):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False, verbose=True, normalize_colors=False):
         self.data_path = data_path
         self.points_per_object = points_per_object
         self.click_area = click_area
         self.force = force
         self.verbose = verbose
+        self.normalize_colors = normalize_colors
 
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
@@ -106,7 +107,7 @@ class DataLoader:
 
         # Add tuple of pointcloud and label to batch
         coords = pcd.point.positions.numpy()
-        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
+        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1, dtype=np.float32)
 
         # coords_list.append(coords)
         # feats_list.append(feats)
@@ -127,6 +128,9 @@ class DataLoader:
         # coords_batch = self.list_to_batch(coords_list, torch.float32)
         # feats_batch = self.list_to_batch(feats_list, torch.float32)
         # label_batch = self.list_to_batch(label_list, torch.uint8)
+
+        if self.normalize_colors:
+            feats[:, :3] = feats[:, :3] / 255
 
         # Return the concatenated arrays
         return coords, feats, label

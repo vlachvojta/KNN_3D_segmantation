@@ -1,5 +1,5 @@
 dataset/Stanford3dDataset_v1.2/
-dataset/S3DIS_converted/
+dataset/S3DIS_converted*/
 results/
 results_*/
 training/
