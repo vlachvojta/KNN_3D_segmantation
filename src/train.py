@@ -167,7 +167,6 @@ def labels_to_logit_shape(labels: torch.Tensor):
     return labels_new
 
 def check_clicks_in_sinput(sinput):
-    print(f'Checking clicks in sinput')
     assert sinput.F.shape[1] == 5, f'Expected 5 features in sinput (RGB, P+N clicks), got {sinput.F.shape[1]}'
 
     print(f'{sinput.F[:, 3:].shape=}')
