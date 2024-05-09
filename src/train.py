@@ -133,9 +133,12 @@ def main(args):
                             'inseg_model': inseg_model_class, 
                             'inseg_global': inseg_global_model,
                             'show_3d': False,
-                            'limit_to_one_object': True}
+                            'limit_to_one_object': True,
+                            'verbose': False,
+                            'max_imgs': 20}
                 val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
+                print(f'Validation finished with mean IOU: {val_iou}')
                 plot_stats(train_losses, val_ious, train_step, args.stats_path)
                 test_step_time = time.time()
                 torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
