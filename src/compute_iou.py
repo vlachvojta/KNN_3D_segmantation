@@ -25,7 +25,7 @@ def main():
     print('Args:', args)
     device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.1)
+    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.1, normalize_colors=True)
 
     # load model from path
     inseg_model_class, inseg_global_model = get_model(args.model_path, device)
@@ -47,7 +47,7 @@ def main():
 
         print(f'inputs: feats({feats.shape})\n'
               f'        coords({coords.shape})')
-        pred, logits = inseg_model_class.prediction(feats, coords, inseg_global_model, device)
+        pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
         pred = torch.unsqueeze(pred, dim=-1)
         print(f'outputs: pred({pred.shape})\n'
               f'         logits({logits.shape})')
@@ -80,7 +80,7 @@ def get_output_point_cloud(coords, feats, labels, pred):
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(coords.numpy())
 
-    colors = feats.numpy()[:, :3] / 255
+    colors = feats.numpy()[:, :3]
     colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
     colors[pred.cpu().numpy()[:, 0] == 1] = [1, 0, 0] # maskPositive output RED
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
