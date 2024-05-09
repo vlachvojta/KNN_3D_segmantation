@@ -17,8 +17,8 @@ def parseargs():
                         help='Where to store testing progress.')
     parser.add_argument("-3", "--show_3d", default=False, action='store_true',
                         help="Show 3D visualization of output models(default: False)")
-    parser.add_argument("-d", "--downsample",  type=float, default=0,
-                        help="Downsample value (default: 0 = no downsampling)")
+    parser.add_argument("-d", "--downsample",  type=int, default=0,
+                        help="Downsample value, every k point (default: 0 = no downsampling)")
     parser.add_argument("-i", "--inseg_model", default=None)
     parser.add_argument("-g", "--inseg_global", default=None)
     parser.add_argument("-l", "--limit_to_one_object", action='store_true',
@@ -61,7 +61,7 @@ def main(args):
     # print('Args:', args) # Debug print only
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(src_path, points_per_object=1, click_area=0.1, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
+    data_loader = DataLoader(src_path, click_area=0.05, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
 
     print(f'{len(data_loader)} elements in data loader')
 

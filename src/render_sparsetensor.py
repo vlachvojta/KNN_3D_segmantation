@@ -28,7 +28,7 @@ def main(args):
     print('Args:', args)
     device = 'cpu'  # 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(args.src_path, points_per_object=5, click_area=0.1)
+    data_loader = DataLoader(args.src_path, click_area=0.1)
     batch = data_loader.get_random_batch()
     coords, feats, labels = batch
     coords = torch.tensor(coords).float().to(device)

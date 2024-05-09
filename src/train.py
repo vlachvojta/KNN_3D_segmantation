@@ -54,8 +54,6 @@ def parse_args():
                         help="Validation dataset path (default: ../dataset/S3DIS_converted_separated/validation")
     parser.add_argument("-v", "--voxel_size", default=0.05, type=float,
                         help="The size data points are converting to (default: 0.05)")
-    parser.add_argument("-p", "--points_per_object", default=5, type=int,
-                        help="Number of simulated click points per object in dataset (default: 5)")
     parser.add_argument("-c", "--click_area", default=0.3, type=float,
                         help="Area of the simulated click points. MUST BE LARGER THAN VOXEL SIZE (default: 0.3)")
 
@@ -97,10 +95,10 @@ def main(args):
         lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
-    train_dataset = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
+    train_dataset = CustomDataLoader(args.dataset_path, verbose=False, click_area=args.click_area)
 
     # create cache for validation dataset
-    val_dataloader = CustomDataLoader(args.val_dataset, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
+    val_dataloader = CustomDataLoader(args.val_dataset, verbose=False, click_area=args.click_area)
 
     train_dataloader = DataLoader(
         train_dataset,
