@@ -38,8 +38,8 @@ def main(args):
         show_3d = args.show_3d
     
     utils.ensure_folder_exists(output_dir)
-    print('Args:', args)
-    device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
+    # print('Args:', args) # Debug print only
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     data_loader = DataLoader(src_path, points_per_object=5, click_area=0.1, normalize_colors=True)
 
@@ -96,9 +96,9 @@ def get_model(pretrained_weights_file, device):
 
 def get_output_point_cloud(coords, feats, labels, pred):
     point_cloud = o3d.geometry.PointCloud()
-    point_cloud.points = o3d.utility.Vector3dVector(coords.numpy())
+    point_cloud.points = o3d.utility.Vector3dVector(coords.cpu().numpy())
 
-    colors = feats.numpy()[:, :3]
+    colors = feats.cpu().numpy()[:, :3]
     colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
     colors[pred.cpu().numpy()[:, 0] == 1] = [1, 0, 0] # maskPositive output RED
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE

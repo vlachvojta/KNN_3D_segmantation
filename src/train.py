@@ -87,6 +87,8 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # device = 'cpu'
     print(f'Using device: {device}')
+    utils.ensure_folder_exists(args.output_dir)
+    utils.ensure_folder_exists(args.stats_path)
 
     inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, device)
 
@@ -96,6 +98,8 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
     train_dataset = CustomDataLoader(args.dataset_path, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
+
+    # create cache for validation dataset
     val_dataloader = CustomDataLoader(args.val_dataset, points_per_object=args.points_per_object, verbose=False, click_area=args.click_area)
 
     train_dataloader = DataLoader(
@@ -195,7 +199,7 @@ def labels_to_logit_shape(labels: torch.Tensor):
 def check_clicks_in_sinput(sinput):
     assert sinput.F.shape[1] == 5, f'Expected 5 features in sinput (RGB, P+N clicks), got {sinput.F.shape[1]}'
 
-    print(f'{sinput.F[:, 3:].shape=}')
+    # print(f'{sinput.F[:, 3:].shape=}')
     positive_click_count = torch.sum(sinput.F[:, 3] != 0)
     negative_click_count = torch.sum(sinput.F[:, 4] != 0)
     if positive_click_count == 0:

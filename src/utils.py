@@ -10,7 +10,7 @@ import torch
 
 def ensure_folder_exists(folder_path):
     if not os.path.exists(os.path.dirname(folder_path)):
-        os.makedirs(folder_path)
+        os.makedirs(folder_path, exist_ok=True)
 
 
 def timeit(start_time) -> str:
