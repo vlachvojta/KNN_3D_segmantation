@@ -106,10 +106,9 @@ def main(args):
         train_dataset,
         batch_size=args.batch_size,
         collate_fn=ME.utils.batch_sparse_collate)
-        # num_workers=1)
 
     train_losses, val_ious = load_stats(args.saved_loss, args.saved_ious)
-    voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
+    # voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
     test_step_time = time.time()
     start_time = time.time()
 
@@ -133,7 +132,8 @@ def main(args):
                             'output_dir': args.validation_out, 
                             'inseg_model': inseg_model_class, 
                             'inseg_global': inseg_global_model,
-                            'show_3d': False}
+                            'show_3d': False,
+                            'limit_to_one_object': True}
                 val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
                 plot_stats(train_losses, val_ious, train_step, args.stats_path)
@@ -204,8 +204,8 @@ def check_clicks_in_sinput(sinput):
     negative_click_count = torch.sum(sinput.F[:, 4] != 0)
     if positive_click_count == 0:
         print(f'!!! No positive clicks in sinput!!! Try setting higher click_area or lower voxel_size')
-    elif positive_click_count < 4:
-        print(f'Not many positive clicks found in sinput (voxelized point cloud) : (positive: {positive_click_count}, negative {negative_click_count}).')
+    # elif positive_click_count < 4:
+    #     print(f'Not many positive clicks found in sinput (voxelized point cloud) : (positive: {positive_click_count}, negative {negative_click_count}).')
 
 
 # def create_input(feats, coords, voxel_size: int = 0.05):
@@ -247,6 +247,9 @@ def save_step(model, path, train_step):
 def plot_stats(train_losses, val_ious, train_step, graphs_path):
     train_losses_str = ', '.join([f'{loss:.5f}' for loss in train_losses])
     print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
+
+    print(f'train_losses: {train_losses}')
+    print(f'val_ious: {val_ious}')
 
     fig, ax = plt.subplots(2, 2)
     for i in range(2):

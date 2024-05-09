@@ -22,7 +22,7 @@ def remove_file_suffix(file_path):
 
 
 def save_point_cloud_views(point_cloud, iou, i, path):
-    save_point_cloud_views_with_window(point_cloud, os.path.join(path, f'point_cloud_{i}_iou_{iou:.0f}'))
+    save_point_cloud_views_with_window(point_cloud, os.path.join(path, f'point_cloud_{i}_iou_{iou:.0f}.png'))
 
 
 def save_point_cloud_views_with_window(point_cloud, file_path):

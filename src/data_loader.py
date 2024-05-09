@@ -12,7 +12,7 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, click_area=0.05, downsample=0, force=False, verbose=True, normalize_colors=False):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, downsample=0, force=False, verbose=True, normalize_colors=False, limit_to_one_object=False):
         self.data_path = data_path
         self.points_per_object = points_per_object
         self.click_area = click_area
@@ -56,6 +56,9 @@ class DataLoader:
                 
             groups = list(pcd.point.group.flatten().numpy())
             groups = [list(i) for _, i in groupby(groups)]
+
+            if limit_to_one_object:
+                groups = [random.choice(groups)]
 
             # Simulate clicked points for each group
             offset = 0
@@ -161,6 +164,7 @@ class DataLoader:
 
     @staticmethod
     def load_from_cache(cache_path):
+        print(f'Loading data from cache: {cache_path}')
         with open(cache_path, 'rb') as f:
             data = pickle.load(f)
         return data

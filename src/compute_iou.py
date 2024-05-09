@@ -21,6 +21,9 @@ def parseargs():
                         help="Downsample value (default: 0 = no downsampling)")
     parser.add_argument("-i", "--inseg_model", default=None)
     parser.add_argument("-g", "--inseg_global", default=None)
+    parser.add_argument("-l", "--limit_to_one_object", action='store_true',
+                        help="Limit objects in one room to one random object (default: False).")
+
     return parser.parse_args()
 
 def main(args):
@@ -31,7 +34,8 @@ def main(args):
         inseg_model = args['inseg_model']
         inseg_global = args['inseg_global']
         show_3d = args['show_3d']
-        downsample = args['downsample']
+        limit_to_one_object = args['limit_to_one_object']
+        downsample = args['downsample'] if 'downsample' in args else 0
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -39,14 +43,18 @@ def main(args):
         inseg_model = args.inseg_model
         inseg_global = args.inseg_global
         show_3d = args.show_3d
-        downsample = args.downsample
+        limit_to_one_object = args.limit_to_one_object
+        downsample = args.downsample if hasattr(args, 'downsample') else 0
     
+    print(f'args: {args}')
+
     utils.ensure_folder_exists(output_dir)
     # print('Args:', args) # Debug print only
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(src_path, points_per_object=5, click_area=0.1, normalize_colors=True, downsample=downsample)
+    data_loader = DataLoader(src_path, points_per_object=1, click_area=0.1, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
 
+    print(f'{len(data_loader)} elements in data loader')
 
     # load model from path
     if (inseg_model == None):
@@ -54,7 +62,7 @@ def main(args):
     else:
         inseg_model_class = inseg_model
         inseg_global_model = inseg_global
-    
+
     results = []
 
     i = 0
@@ -68,15 +76,15 @@ def main(args):
         coords = torch.tensor(coords).float().to(device)
         feats = torch.tensor(feats).float().to(device)
         labels = torch.tensor(labels).long().to(device)
-        print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+        # print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-        print(f'inputs: feats({feats.shape})\n'
-              f'        coords({coords.shape})')
+        # print(f'inputs: feats({feats.shape})\n'
+        #       f'        coords({coords.shape})')
         pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
         pred = torch.unsqueeze(pred, dim=-1)
-        print(f'outputs: pred({pred.shape})\n'
-              f'         logits({logits.shape})')
-        print(f'labels: labels({labels.shape})')
+        # print(f'outputs: pred({pred.shape})\n'
+        #       f'         logits({logits.shape})')
+        # print(f'labels: labels({labels.shape})')
 
         iou = inseg_model_class.mean_iou(pred, labels)
         print(f'iou: {iou}')
@@ -85,7 +93,7 @@ def main(args):
         if show_3d:
             o3d.visualization.draw_geometries([output_point_cloud])
         utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir)
-        results.append(iou)
+        results.append(iou.cpu())
         print(f'Mean iou so far: {sum(results) / len(results)}')
         i += 1
 
