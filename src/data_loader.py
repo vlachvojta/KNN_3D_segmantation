@@ -12,7 +12,7 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, click_area=0.05, downsample=0.05, force=False, verbose=True, normalize_colors=False):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, downsample=0, force=False, verbose=True, normalize_colors=False):
         self.data_path = data_path
         self.points_per_object = points_per_object
         self.click_area = click_area
