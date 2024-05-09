@@ -21,14 +21,15 @@ def remove_file_suffix(file_path):
     return os.path.splitext(file_path)[0]
 
 
-def save_point_cloud_views(point_cloud, iou, i, path):
-    save_point_cloud_views_with_window(point_cloud, os.path.join(path, f'point_cloud_{i}_iou_{iou:.0f}'))
+def save_point_cloud_views(point_cloud, iou, i, path, verbose=True):
+    save_point_cloud_views_with_window(point_cloud, os.path.join(path, f'point_cloud_{i}_iou_{iou:.0f}'), verbose)
 
 
-def save_point_cloud_views_with_window(point_cloud, file_path):
+def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
     ensure_folder_exists(file_path)
     remove_file_suffix(file_path)
-    print(f'Saving file to {file_path}')
+    if verbose:
+        print(f'Saving file to {file_path}')
 
     # Headless rendering is supported on linux only
     if platform.system() == 'Linux':

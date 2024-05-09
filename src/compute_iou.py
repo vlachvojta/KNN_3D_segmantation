@@ -21,6 +21,9 @@ def parseargs():
                         help="Downsample value (default: 0 = no downsampling)")
     parser.add_argument("-i", "--inseg_model", default=None)
     parser.add_argument("-g", "--inseg_global", default=None)
+    parser.add_argument("-v", "--verbose", default=True)
+    parser.add_argument("-mi", "--max_imgs",  type=int, default=20,
+                        help="Number of maximum saved image samples (default: 20)")
     return parser.parse_args()
 
 def main(args):
@@ -31,7 +34,8 @@ def main(args):
         inseg_model = args['inseg_model']
         inseg_global = args['inseg_global']
         show_3d = args['show_3d']
-        downsample = args['downsample']
+        verbose = args['verbose']
+        max_imgs = args['max_imgs']
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -40,6 +44,8 @@ def main(args):
         inseg_global = args.inseg_global
         show_3d = args.show_3d
         downsample = args.downsample
+        verbose = args.verbose
+        max_imgs = args.max_imgs
     
     utils.ensure_folder_exists(output_dir)
     # print('Args:', args) # Debug print only
@@ -60,37 +66,48 @@ def main(args):
     i = 0
 
     while True:
-        print(f'\nBatch {i}')
         batch = data_loader.get_random_batch()
         if not batch:
             break
+        if verbose:
+            print(f'\nBatch {i}')
+        else:
+            if i % 50 == 0 and i != 0:
+                print('')
+            print(".", end="", flush=True)
         coords, feats, labels = batch
         coords = torch.tensor(coords).float().to(device)
         feats = torch.tensor(feats).float().to(device)
         labels = torch.tensor(labels).long().to(device)
-        print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
+        if verbose:
+            print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-        print(f'inputs: feats({feats.shape})\n'
-              f'        coords({coords.shape})')
+            print(f'inputs: feats({feats.shape})\n'
+                  f'        coords({coords.shape})')
         pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
         pred = torch.unsqueeze(pred, dim=-1)
-        print(f'outputs: pred({pred.shape})\n'
-              f'         logits({logits.shape})')
-        print(f'labels: labels({labels.shape})')
+        if verbose:
+            print(f'outputs: pred({pred.shape})\n'
+                  f'         logits({logits.shape})')
+            print(f'labels: labels({labels.shape})')
 
         iou = inseg_model_class.mean_iou(pred, labels)
-        print(f'iou: {iou}')
-
-        output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
-        if show_3d:
-            o3d.visualization.draw_geometries([output_point_cloud])
-        utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir)
+        if verbose:
+            print(f'iou: {iou}')
+        
+        if max_imgs > i:
+            output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
+            if show_3d:
+                o3d.visualization.draw_geometries([output_point_cloud])
+            utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir, verbose)
         results.append(iou)
-        print(f'Mean iou so far: {sum(results) / len(results)}')
+        if verbose:
+            print(f'Mean iou so far: {sum(results) / len(results)}')
         i += 1
 
     # print result mean
-    print(f'Mean IoU: {sum(results) / len(results)}')
+    if verbose:
+        print(f'Mean IoU: {sum(results) / len(results)}')
     return sum(results) / len(results) if len(results) > 0 else 0
 
 def get_model(pretrained_weights_file, device):
