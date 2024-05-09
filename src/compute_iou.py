@@ -17,6 +17,8 @@ def parseargs():
                         help='Where to store testing progress.')
     parser.add_argument("-3", "--show_3d", default=False, action='store_true',
                         help="Show 3D visualization of output models(default: False)")
+    parser.add_argument("-d", "--downsample",  type=float, default=0,
+                        help="Downsample value (default: 0 = no downsampling)")
     parser.add_argument("-i", "--inseg_model", default=None)
     parser.add_argument("-g", "--inseg_global", default=None)
     return parser.parse_args()
@@ -29,6 +31,7 @@ def main(args):
         inseg_model = args['inseg_model']
         inseg_global = args['inseg_global']
         show_3d = args['show_3d']
+        downsample = args['downsample']
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -36,12 +39,13 @@ def main(args):
         inseg_model = args.inseg_model
         inseg_global = args.inseg_global
         show_3d = args.show_3d
+        downsample = args.downsample
     
     utils.ensure_folder_exists(output_dir)
     print('Args:', args)
     device = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(src_path, points_per_object=5, click_area=0.1, normalize_colors=True)
+    data_loader = DataLoader(src_path, points_per_object=5, click_area=0.1, normalize_colors=True, downsample=downsample)
 
 
     # load model from path
