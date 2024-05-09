@@ -52,13 +52,12 @@ def parse_args():
                         help="Source dataset path. (default: ../dataset/S3DIS_converted_separated/train)")
     parser.add_argument("-vd", "--val_dataset", default="../dataset/S3DIS_converted_separated/validation",
                         help="Validation dataset path (default: ../dataset/S3DIS_converted_separated/validation")
-    # TODO add args for dataset: points per object, voxel size, click area (define defaults)
     parser.add_argument("-v", "--voxel_size", default=0.05, type=float,
                         help="The size data points are converting to (default: 0.05)")
     parser.add_argument("-p", "--points_per_object", default=5, type=int,
                         help="Number of simulated click points per object in dataset (default: 5)")
-    parser.add_argument("-c", "--click_area", default=0.1, type=float,
-                        help="Area of the simulated click points. MUST BE LARGER THAN VOXEL SIZE (default: 0.1)")                    
+    parser.add_argument("-c", "--click_area", default=0.3, type=float,
+                        help="Area of the simulated click points. MUST BE LARGER THAN VOXEL SIZE (default: 0.3)")
 
     parser.add_argument("-m", "--pretrained_model_path", type=str, default=None,
                         help="Pretrained model path to start training with (default: None)")
@@ -86,6 +85,7 @@ def parse_args():
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cpu'
     print(f'Using device: {device}')
 
     inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, device)
@@ -134,6 +134,7 @@ def main(args):
                 val_ious.append(val_iou)
                 plot_stats(train_losses, val_ious, train_step, args.stats_path)
                 test_step_time = time.time()
+                torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
 
             if train_step % args.save_step == 0:
                 save_step(inseg_global_model, args.output_dir, train_step)
@@ -142,6 +143,7 @@ def main(args):
             labels = labels_to_logit_shape(labels)
             labels = labels.float().to(device)
             sinput = ME.SparseTensor(feats.float(), coords, device=device)
+            check_clicks_in_sinput(sinput)
 
             out = inseg_global_model(sinput)
             out = out.slice(sinput)
@@ -189,6 +191,18 @@ def labels_to_logit_shape(labels: torch.Tensor):
     labels_new[labels[:, 0] == 0, 0] = 1
     labels_new[labels[:, 0] == 1, 1] = 1
     return labels_new
+
+def check_clicks_in_sinput(sinput):
+    assert sinput.F.shape[1] == 5, f'Expected 5 features in sinput (RGB, P+N clicks), got {sinput.F.shape[1]}'
+
+    print(f'{sinput.F[:, 3:].shape=}')
+    positive_click_count = torch.sum(sinput.F[:, 3] != 0)
+    negative_click_count = torch.sum(sinput.F[:, 4] != 0)
+    if positive_click_count == 0:
+        print(f'!!! No positive clicks in sinput!!! Try setting higher click_area or lower voxel_size')
+    elif positive_click_count < 4:
+        print(f'Not many positive clicks found in sinput (voxelized point cloud) : (positive: {positive_click_count}, negative {negative_click_count}).')
+
 
 # def create_input(feats, coords, voxel_size: int = 0.05):
 #     # if len(feats.shape) == 3:

@@ -12,17 +12,19 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, points_per_object=5, click_area=0.05, force=False, verbose=True):
+    def __init__(self, data_path, points_per_object=5, click_area=0.05, downsample=0.05, force=False, verbose=True, normalize_colors=False):
         self.data_path = data_path
         self.points_per_object = points_per_object
         self.click_area = click_area
+        self.downsample = downsample
         self.force = force
         self.verbose = verbose
+        self.normalize_colors = normalize_colors
 
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
         # self.cache_path = os.path.join(data_path, "dataloader_cache")
-        self.cache_path = os.path.join(data_path, "dataloader_cache_ppo" + str(points_per_object) + "_ca" + str(click_area) + ".pkl")
+        self.cache_path = os.path.join(data_path, "dataloader_cache_ppo" + str(points_per_object) + "_ca" + str(click_area) + "_ds" + str(downsample) + ".pkl")
 
         # Load from cache
         if os.path.exists(self.cache_path):
@@ -33,9 +35,9 @@ class DataLoader:
                 self.len = self.remaining_unique_elements()
                 return
 
-        self.data = {}
+        self.data = {}   
 
-        print(f'\nCreating DataLoader with points_per_object={points_per_object} and click_area={click_area}, processing {len([f for f in os.scandir(data_path)])} files.')
+        print(f'\nCreating DataLoader with points_per_object={points_per_object} and click_area={click_area} and downsample={downsample}, processing {len([f for f in os.scandir(data_path)])} files.')
         # Process each area
         for i, file in enumerate([f.path for f in os.scandir(data_path) if f.path.endswith('.pcd')]):
             if verbose:
@@ -48,6 +50,10 @@ class DataLoader:
 
             # Load pointcloud and split into groups (objects)
             pcd = o3d.t.io.read_point_cloud(file)
+            
+            if downsample != 0:
+                pcd = pcd.voxel_down_sample(voxel_size=0.05)
+                
             groups = list(pcd.point.group.flatten().numpy())
             groups = [list(i) for _, i in groupby(groups)]
 
@@ -88,6 +94,8 @@ class DataLoader:
 
         # Load pointcloud and simulate positive click in maskPositive
         pcd = o3d.t.io.read_point_cloud(random_area)
+        if self.downsample != 0:
+            pcd = pcd.voxel_down_sample(voxel_size=self.downsample)
     
         # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
         # It's ugly but it works
@@ -106,7 +114,7 @@ class DataLoader:
 
         # Add tuple of pointcloud and label to batch
         coords = pcd.point.positions.numpy()
-        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1)
+        feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1, dtype=np.float32)
 
         # coords_list.append(coords)
         # feats_list.append(feats)
@@ -127,6 +135,9 @@ class DataLoader:
         # coords_batch = self.list_to_batch(coords_list, torch.float32)
         # feats_batch = self.list_to_batch(feats_list, torch.float32)
         # label_batch = self.list_to_batch(label_list, torch.uint8)
+        
+        if self.normalize_colors:
+            feats[:, :3] = feats[:, :3] / 255
 
         # Return the concatenated arrays
         return coords, feats, label

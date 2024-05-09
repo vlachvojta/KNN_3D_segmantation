@@ -5,6 +5,7 @@ import open3d as o3d
 import numpy as np
 import platform
 from PIL import Image
+import torch
 
 
 def ensure_folder_exists(folder_path):
@@ -81,3 +82,8 @@ def save_point_cloud_views_with_window(point_cloud, file_path):
         vis.add_geometry(point_cloud)
         vis.capture_screen_image(f"{file_path}_view_0.png", do_render=True)
         vis.destroy_window()
+
+def save_tensor_to_txt(tensor, filename):
+    if isinstance(tensor, torch.Tensor):
+        tensor = tensor.cpu().numpy()
+    np.savetxt(filename, tensor)
