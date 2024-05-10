@@ -95,7 +95,7 @@ def main(args):
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
         lr=args.lr)
-    criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
+    criterion = torch.nn.BCELoss() #ignore_index=-100)
 
     train_dataset = CustomDataLoader(args.dataset_path, verbose=False, click_area=args.click_area)
 
@@ -108,7 +108,8 @@ def main(args):
         collate_fn=ME.utils.batch_sparse_collate)
 
     train_losses, val_ious, train_ious = load_stats(args.saved_loss, args.saved_ious_val, args.saved_ious_train)
-    # voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
+    train_ious_before_slice = []
+    voxel_size = args.voxel_size
     test_step_time = time.time()
     start_time = time.time()
 
@@ -126,7 +127,8 @@ def main(args):
             train_batch = next(train_iter)
 
             if train_step % args.test_step == 0:
-                print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
+                print('\n\n-------------------------------------------------------------------------------------')
+                print(f'Epoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
                       f'time from start: {utils.timeit(start_time)}')
                 # val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
@@ -146,26 +148,42 @@ def main(args):
                 plot_stats(train_losses, val_ious, train_ious, train_step, args.stats_path)
                 test_step_time = time.time()
                 torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
+                print('-------------------------------------------------------------------------------------\n')
 
             if train_step % args.save_step == 0:
                 save_step(inseg_global_model, args.output_dir, train_step)
 
+            train_step+=1
+
             coords, feats, labels = train_batch
             labels = labels_to_logit_shape(labels)
             labels = labels.float().to(device)
-            sinput = ME.SparseTensor(feats.float(), coords, device=device)
-            if not clicks_in_sinput(sinput):
+            feats = feats.float().to(device)
+
+            super_feats = torch.cat((feats, labels), dim=1)
+            super_sinput = ME.SparseTensor(super_feats.float(), coords, device=device)
+            sinput = ME.SparseTensor(super_sinput.F[:, :-2], super_sinput.C, device=device)
+            slabels = ME.SparseTensor(super_sinput.F[:, -2:], super_sinput.C, device=device)
+
+            if not clicks_in_sinput(sinput, slabels, args.batch_size):
                 continue
 
-            out = inseg_global_model(sinput)
-            out = out.slice(sinput)
+            sout = inseg_global_model(sinput)
             optimizer.zero_grad()
-            loss = criterion(out.F.squeeze(), labels)
+            sout_for_loss = torch.softmax(sout.F, dim=1)
+            loss = criterion(sout_for_loss, slabels.F)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
-            train_ious.append(inseg_model_class.mean_iou(out.F.argmax(dim=1), labels.argmax(dim=1)).cpu())
-            train_step+=1
+            train_iou_before_slice = inseg_model_class.mean_iou(sout.F.argmax(dim=1), slabels.F.argmax(dim=1)).cpu()
+
+            out = sout.slice(super_sinput)
+            out = out.F.argmax(dim=1)
+            labels = labels.argmax(dim=1)
+            # print(f'{out.shape=}, {labels.shape=}')
+            train_iou = inseg_model_class.mean_iou(out, labels).cpu()
+            train_ious.append(train_iou)
+            print(f'train_loss: {loss.item():.5f}, train_iou_before_slice: {train_iou_before_slice:.5f}, train_iou: {train_iou:.5f}')
             print('.', end='', flush=True)
 
         print(f'\n\nEpoch {epoch} took {utils.timeit(epoch_time)}')
@@ -206,50 +224,26 @@ def labels_to_logit_shape(labels: torch.Tensor):
     labels_new[labels[:, 0] == 1, 1] = 1
     return labels_new
 
-def clicks_in_sinput(sinput) -> bool:
+def clicks_in_sinput(sinput, slabels, batch_size) -> bool:
     assert sinput.F.shape[1] == 5, f'Expected 5 features in sinput (RGB, P+N clicks), got {sinput.F.shape[1]}'
 
     positive_click_count = torch.sum(sinput.F[:, 3] != 0)
     # negative_click_count = torch.sum(sinput.F[:, 4] != 0)
-    if positive_click_count == 0:
-        print(f'!!! No positive clicks in sinput, skipping!!! Try setting higher click_area or lower voxel_size')
+    if positive_click_count == 0:  # TODO Check with batch_size somehow
+        print(f'!!! Skipping batch !!! Not enough positive clicks in sinput.')
         return False
     # elif positive_click_count < 4:
     #     print(f'Not many positive clicks found in sinput (voxelized point cloud) : (positive: {positive_click_count}, negative {negative_click_count}).')
 
+    local_labels = slabels.F.argmax(dim=1)
+    non_zero_labels = torch.sum(local_labels != 0)
+    numel = local_labels.numel()
+    # print(f'from {local_labels.shape} labels, {non_zero_labels} are non-zero ({non_zero_labels / numel * 100:.2f}%)')
+    if non_zero_labels / numel < 0.01:  # less than 3% of labels are non-zero
+        print(f'!!! No labels in slabels, skipping!!!')
+        return False
+
     return True
-
-
-# def create_input(feats, coords, voxel_size: int = 0.05):
-#     # if len(feats.shape) == 3:
-#     #     feats = feats[0]
-#     # if len(coords.shape) == 3:
-#     #     coords = coords[0]
-
-#     # print(f'coords: ({type(coords)}, {coords.shape}), feats: ({type(feats)}, {feats.shape})')
-
-#     # coords, feats = ME.utils.sparse_collate([coords], [feats])
-
-#     # print(f'coords: ({type(coords)}, {coords.shape}), feats: ({type(feats)}, {feats.shape})')
-
-#     sinput = ME.SparseTensor(
-#         features=feats,
-#         coordinates=coords, #ME.utils.batched_coordinates([coords / voxel_size]),
-#         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
-#         # device=device
-#     )
-
-#     # sinput = [ME.SparseTensor(
-#     #     features=feat,
-#     #     coordinates=ME.utils.batched_coordinates([coord / voxel_size]),
-#     #     quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
-#     #     # device=device
-#     # )  for feat, coord in zip(feats, coords)]
-#     # for i in range(len(sinput)):
-#     #     print(f'sinput[{i}]: {type(sinput[i])}, {sinput[i].F.shape=}, {sinput[i].C.shape=}, {sinput[i].C[0].shape=}, {sinput[i].C[1].shape=}')
-#     # print(f'sinput: {type(sinput)}, {sinput.F.shape=}, {sinput.C.shape=}, {sinput.C[0].shape=}, {sinput.C[1].shape=}')
-
-#     return sinput
 
 def save_step(model, path, train_step):
     export_path = os.path.join(path, f'model_{train_step}.pth')
@@ -287,5 +281,52 @@ def plot_stats(train_losses, val_ious, train_ious, train_step, graphs_path):
     np.save(os.path.join(graphs_path, 'val_ious.npy'), val_ious)
     np.save(os.path.join(graphs_path, 'train_ious.npy'), train_ious)
 
+# def compare_tensors(t1, t2, t1_name, t2_name):
+#     print(f'\n\nComparing {t1_name} and {t2_name}')
+#     print(f'{t1_name}.shape={t1.shape}, {t2_name}.shape={t2.shape}')
+#     print(f'{t1_name}:\n{t1}')
+#     print(f'{t2_name}:\n{t2}')
+#     print(f'!!! tensors equal?: {torch.all(t1 == t2)}')
+#     sum_same = torch.sum(t1 == t2)
+#     numel = t1.numel()
+#     print(f'!!! sum of same values: {sum_same} out of {numel} ({sum_same / numel * 100:.2f}%)')
+#     # label_loss = criterion(t1, t2)
+#     # print(f'{label_loss=}')
+#     # sum_ones_zero = torch.sum(t1[:, 0] == 1)
+#     # sum_ones_one = torch.sum(t1[:, 1] == 1)
+#     # valid_label = torch.sum(t1[:, 0] + t1[:, 1] == 1)
+#     # print(f'{t1_name} ones_zero: {sum_ones_zero}, ones_one: {sum_ones_one} out of {numel}')
+#     # print(f'{t1_name} valid labels: {valid_label} out of {len(t1)} ({valid_label / len(t1) * 100:.2f}%)')
+#     non_zero = torch.sum(t1 != 0)
+#     print(f'{t1_name} non_zero: {non_zero} out of {numel} ({non_zero / numel * 100:.2f}%)')
+#     non_zero = torch.sum(t2 != 0)
+#     print(f'{t2_name} non_zero: {non_zero} out of {numel} ({non_zero / numel * 100:.2f}%)')
+#     print(f'Counting IOUfor {len(t1)} elements:')
+#     intersection = torch.logical_and(t2, t1)
+#     print(f'\nintersection: {torch.sum(intersection)}')
+#     truepositive = intersection.sum()
+#     union = torch.logical_or(t2, t1)
+#     print(f'\nunion: {torch.sum(union)}')
+#     union = torch.sum(union)
+#     iou = 100 * (truepositive / union)
+#     print(f'\nIOU: {iou:.2f}%')
+
+# When theres too low IOUs...
+# if train_iou < 0.000001 or train_iou_before_slice < 0.000001:
+
+#     print(f'IOU is too low: analyzing tensors')
+#     compare_tensors(out, labels, 'out', 'labels')
+#     print(f'train_iou: {train_iou:.5f}, ')
+#     compare_tensors(sout.F.argmax(dim=1),   slabels.F.argmax(dim=1),
+#                    'sout.F.argmax(dim=1)', 'slabels.F.argmax(dim=1)')
+#     print(f'train_iou_before_slice: {train_iou_before_slice:.5f}')
+
+#     print('exiting'); exit()
+    
+#     utils.save_tensor_to_txt(out, 'out_2.txt')
+#     utils.save_tensor_to_txt(labels, 'labels.txt')
+#     concat = torch.cat((out.unsqueeze(1), labels.unsqueeze(1)), dim=1)
+#     utils.save_tensor_to_txt(concat, 'concat.txt')
+#     print(f'exiting'); exit()
 if __name__ == '__main__':
     main(parse_args())
