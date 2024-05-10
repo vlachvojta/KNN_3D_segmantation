@@ -26,7 +26,7 @@ def parseargs():
     parser.add_argument("-v", "--verbose", default=True)
     parser.add_argument("-mi", "--max_imgs",  type=int, default=20,
                         help="Number of maximum saved image samples (default: 20)")
-    parser.add_argument("-c", "--click_area",  type=int, default=0.1,
+    parser.add_argument("-c", "--click_area",  type=float, default=0.1,
                         help="Click area (default: 0.1)")
 
     return parser.parse_args()
