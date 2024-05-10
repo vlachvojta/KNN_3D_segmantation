@@ -73,7 +73,9 @@ def parse_args():
                         help='Where to store training stats')
     parser.add_argument('-sl', '--saved_loss', type=str, default=None,
                         help='Path to saved training loss data from previous training')
-    parser.add_argument('-si', '--saved_ious', type=str, default=None,
+    parser.add_argument('-siv', '--saved_ious_val', type=str, default=None,
+                        help='Path to saved IOU data from previous training')
+    parser.add_argument('-sit', '--saved_ious_train', type=str, default=None,
                         help='Path to saved IOU data from previous training')
     parser.add_argument('-b', '--batch_size', default=20, type=int)
     parser.add_argument('--max_epochs', default=10, type=int)
@@ -107,12 +109,13 @@ def main(args):
         batch_size=args.batch_size,
         collate_fn=ME.utils.batch_sparse_collate)
 
-    train_losses, val_ious = load_stats(args.saved_loss, args.saved_ious)
+    train_losses, val_ious, train_ious = load_stats(args.saved_loss, args.saved_ious_val, args.saved_ious_train)
     # voxel_size = args.voxel_size  # TODO pass this to training ME.SparseTensor somehow?
     test_step_time = time.time()
     start_time = time.time()
 
-    print(f'Train steps in one epoch: {train_dataset.remaining_unique_elements() // args.batch_size}')
+    train_steps_in_epoch = train_dataset.remaining_unique_elements() // args.batch_size
+    print(f'Train steps in one epoch: {train_steps_in_epoch}')
     print(f'Training started at {time.ctime()}\n')
 
     for epoch in range(args.max_epochs):
@@ -121,7 +124,9 @@ def main(args):
         train_iter = iter(train_dataloader)
         inseg_global_model.train()
 
-        for train_batch in train_iter:
+        for _ in range(train_steps_in_epoch):
+            train_batch = next(train_iter)
+
             if train_step % args.test_step == 0:
                 print(f'\nEpoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
@@ -129,17 +134,18 @@ def main(args):
                 # val_iou = test_step(inseg_model_class, inseg_global_model, val_dataloader)
                 iou_args = {'src_path': args.val_dataset, 
                             'model_path': " ", 
-                            'output_dir': args.validation_out, 
+                            'output_dir': f'{args.validation_out}_{train_step}', 
                             'inseg_model': inseg_model_class, 
                             'inseg_global': inseg_global_model,
                             'show_3d': False,
                             'limit_to_one_object': True,
                             'verbose': False,
-                            'max_imgs': 20}
+                            'max_imgs': 20,
+                            'click_area': args.click_area}
                 val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
                 print(f'Validation finished with mean IOU: {val_iou}')
-                plot_stats(train_losses, val_ious, train_step, args.stats_path)
+                plot_stats(train_losses, val_ious, train_ious, train_step, args.stats_path)
                 test_step_time = time.time()
                 torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
 
@@ -150,7 +156,8 @@ def main(args):
             labels = labels_to_logit_shape(labels)
             labels = labels.float().to(device)
             sinput = ME.SparseTensor(feats.float(), coords, device=device)
-            check_clicks_in_sinput(sinput)
+            if not clicks_in_sinput(sinput):
+                continue
 
             out = inseg_global_model(sinput)
             out = out.slice(sinput)
@@ -159,10 +166,11 @@ def main(args):
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
+            train_ious.append(inseg_model_class.mean_iou(out.F.argmax(dim=1), labels.argmax(dim=1)).cpu())
             train_step+=1
             print('.', end='', flush=True)
 
-        print(f'\n\nEpoch {epoch} took {time.time() - epoch_time:.2f} seconds\n')
+        print(f'\n\nEpoch {epoch} took {utils.timeit(epoch_time)}')
 
 def get_model(pretrained_weights_file, output_dir, device):
     # try to find model in output_dir
@@ -182,13 +190,14 @@ def get_model(pretrained_weights_file, output_dir, device):
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
     return inseg_global, global_model, trained_steps
 
-def load_stats(saved_loss, saved_ious):
-    if (saved_loss == None or saved_ious == None):
-        return [], []
+def load_stats(saved_loss, val_ious, train_ious):
+    if (saved_loss == None or val_ious == None or train_ious == None):
+        return [], [], []
     else:
         losses = list(np.load(saved_loss))
-        ious = list(np.load(saved_ious))
-        return losses, ious
+        val_ious = list(np.load(val_ious))
+        train_ious = list(np.load(train_ious))
+        return losses, val_ious, train_ious
 
 def labels_to_logit_shape(labels: torch.Tensor):
     if len(labels.shape) == 3:
@@ -199,16 +208,18 @@ def labels_to_logit_shape(labels: torch.Tensor):
     labels_new[labels[:, 0] == 1, 1] = 1
     return labels_new
 
-def check_clicks_in_sinput(sinput):
+def clicks_in_sinput(sinput) -> bool:
     assert sinput.F.shape[1] == 5, f'Expected 5 features in sinput (RGB, P+N clicks), got {sinput.F.shape[1]}'
 
-    # print(f'{sinput.F[:, 3:].shape=}')
     positive_click_count = torch.sum(sinput.F[:, 3] != 0)
-    negative_click_count = torch.sum(sinput.F[:, 4] != 0)
+    # negative_click_count = torch.sum(sinput.F[:, 4] != 0)
     if positive_click_count == 0:
-        print(f'!!! No positive clicks in sinput!!! Try setting higher click_area or lower voxel_size')
+        print(f'!!! No positive clicks in sinput, skipping!!! Try setting higher click_area or lower voxel_size')
+        return False
     # elif positive_click_count < 4:
     #     print(f'Not many positive clicks found in sinput (voxelized point cloud) : (positive: {positive_click_count}, negative {negative_click_count}).')
+
+    return True
 
 
 # def create_input(feats, coords, voxel_size: int = 0.05):
@@ -245,26 +256,30 @@ def check_clicks_in_sinput(sinput):
 def save_step(model, path, train_step):
     export_path = os.path.join(path, f'model_{train_step}.pth')
     torch.save(model.state_dict(), export_path)
-    print(f'Model saved to: {export_path}')
+    print(f'Model saved to: {export_path}\n')
 
-def plot_stats(train_losses, val_ious, train_step, graphs_path):
-    train_losses_str = ', '.join([f'{loss:.5f}' for loss in train_losses])
-    print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
+def plot_stats(train_losses, val_ious, train_ious, train_step, graphs_path):
+    # train_losses_str = ', '.join([f'{loss:.5f}' for loss in train_losses])
+    # print(f'\nTest step. Train losses: [{train_losses_str}]') # , Val IoUs: {val_ious}')
 
-    print(f'train_losses: {train_losses}')
-    print(f'val_ious: {val_ious}')
+    # print(f'train_losses: {train_losses}')
+    # print(f'val_ious: {val_ious}')
 
-    fig, ax = plt.subplots(2, 2)
+    fig, ax = plt.subplots(3, 2)
     for i in range(2):
         ax[0, i].plot(train_losses)
         ax[0, i].set_title('Train losses')
         ax[0, i].set_xlabel('Trained steps')
-        ax[1, i].plot(val_ious)
-        ax[1, i].set_title('Validation IOU')
-        ax[1, i].set_xlabel('Test steps')
+        ax[1, i].plot(train_ious)
+        ax[1, i].set_title('Train IOU')
+        ax[1, i].set_xlabel('Trained steps')
+        ax[2, i].plot(val_ious)
+        ax[2, i].set_title('Validation IOU')
+        ax[2, i].set_xlabel('Test steps')
 
     ax[0, 0].set_yscale('log')
     ax[1, 0].set_yscale('log')
+    ax[2, 0].set_yscale('log')
     plt.tight_layout()
     print(f'Saving losses to {os.path.join(graphs_path, "losses.png")}')
     plt.savefig(os.path.join(graphs_path, 'losses.png'))
@@ -272,6 +287,7 @@ def plot_stats(train_losses, val_ious, train_step, graphs_path):
 
     np.save(os.path.join(graphs_path, 'train_losses.npy'), train_losses)
     np.save(os.path.join(graphs_path, 'val_ious.npy'), val_ious)
+    np.save(os.path.join(graphs_path, 'train_ious.npy'), train_ious)
 
 if __name__ == '__main__':
     main(parse_args())
