@@ -110,7 +110,7 @@ def main(args):
             print(f'iou: {iou}')
 
         if i < max_imgs:
-            output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
+            output_point_cloud = utils.get_output_point_cloud(coords, feats, labels, pred)
             if show_3d:
                 o3d.visualization.draw_geometries([output_point_cloud])
             utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir, verbose)
@@ -128,18 +128,6 @@ def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
     return inseg_global, global_model
-
-def get_output_point_cloud(coords, feats, labels, pred):
-    point_cloud = o3d.geometry.PointCloud()
-    point_cloud.points = o3d.utility.Vector3dVector(coords.cpu().numpy())
-
-    colors = feats.cpu().numpy()[:, :3]
-    colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
-    colors[pred.cpu().numpy()[:, 0] == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
-    colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
-    point_cloud.colors = o3d.utility.Vector3dVector(colors)
-
-    return point_cloud
 
 
 if __name__ == "__main__":
