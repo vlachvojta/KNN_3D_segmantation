@@ -11,10 +11,11 @@ from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
 
 
 class Interactive:
-    def __init__(self, path, model_path_ours, model_path_io3d):
+    def __init__(self, path, model_path_ours, model_path_io3d, fix = False):
         self.pcd_path = path
         self.model_path_ours = model_path_ours
         self.model_path_io3d = model_path_io3d
+        self.fix = fix
         self.initGUI()
         self.initApp()
 
@@ -76,6 +77,7 @@ class Interactive:
         
         if self.model_path_ours:
             self.fileOur.text_value = self.model_path_ours.split('/')[-1]
+            self.modelOur_class, self.modelOur_global = self.loadModel(self.model_path_ours)
         else:
             self.runOur.enabled = False
             
@@ -100,6 +102,8 @@ class Interactive:
         
         if self.model_path_io3d:
             self.fileIO3D.text_value = self.model_path_io3d.split('/')[-1]
+            self.modelIO3D_class, self.modelIO3D_global = self.loadModel(self.model_path_io3d)
+            
         else:
             self.runIO3D.enabled = False
         
@@ -230,6 +234,9 @@ class Interactive:
         self.model_path_ours = path
         self.fileOur.text_value = path.split('/')[-1]
         self.runOur.enabled = True   
+        
+        self.modelOur_class, self.modelOur_global = self.loadModel(self.model_path_ours)
+        
         self.GUI_Window.close_dialog()
         
     def fileOpenModelIO3D(self):
@@ -245,7 +252,16 @@ class Interactive:
         self.model_path_io3d = path	
         self.fileIO3D.text_value = path.split('/')[-1]
         self.runIO3D.enabled = True   
+        
+        self.modelIO3D_class, self.modelIO3D_global = self.loadModel(self.model_path_io3d)
+        
         self.GUI_Window.close_dialog()
+        
+    def loadModel(self, path):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        inseg_model_class = InteractiveSegmentationModel(pretraining_weights=path)
+        inseg_global_model = inseg_model_class.create_model(device, inseg_model_class.pretraining_weights_file)
+        return inseg_model_class, inseg_global_model
 
     def loadFile(self):
         if not os.path.exists(self.pcd_path):
@@ -307,13 +323,15 @@ class Interactive:
             else:
                 self.maskNegative.append(list(idx))
             for i in idx:
-
-                # self.pcd_original.point.colors[i] = self.getColor(self.positiveColor if positive else self.negativeColor)
-
                 if positive:
                     self.pcd_original.point.maskPositive[i] = 1
                 else:
                     self.pcd_original.point.maskNegative[i] = 1
+                    
+            # Fix for broken rendering (on some systems it doesn't render correctly)
+            # When the fix is enabled, you need to re-render manually by presing space 
+            if not self.fix:
+                self.render()
 
         # CTRL + Click = positive click
         # SHIFT + Click = negative click
@@ -372,25 +390,22 @@ class Interactive:
 
     def runModelOur(self):
         self.model_path = self.model_path_ours
-        self.runModel()
+        self.runModel(self.modelOur_class, self.modelOur_global)
         
     def runModelIO3D(self):
         self.model_path = self.model_path_io3d
-        self.runModel()
+        self.runModel(self.modelIO3D_class, self.modelIO3D_global)
 
-    def runModel(self):
+    def runModel(self, inseg_class, inseg_model):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        inseg_model_class = InteractiveSegmentationModel(pretraining_weights=self.model_path)
-        inseg_global_model = inseg_model_class.create_model(device, inseg_model_class.pretraining_weights_file)
-        
         coords = self.pcd_original.point.positions.numpy()
         feats = np.concatenate((self.pcd_original.point.colors.numpy(), self.pcd_original.point.maskPositive.numpy(), self.pcd_original.point.maskNegative.numpy()), axis=1, dtype=np.float32)
         
         coords = torch.tensor(coords).float().to(device)
         feats = torch.tensor(feats).float().to(device)
         
-        pred, _ = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
+        pred, _ = inseg_class.prediction(feats.float(), coords.cpu().numpy(), inseg_model, device)
 
         self.pred = pred.cpu().numpy()
         self.render()
@@ -401,7 +416,8 @@ if __name__ == "__main__":
                         help="Data path (default: ../dataset/S3DIS_converted_downsampled/test/Area_5_conferenceRoom_1.pcd")
     parser.add_argument("-m", "--model_path_ours", help="Model path - ours")
     parser.add_argument("-i", "--model_path_interobject3d", help="Model path - InterObject3D")
+    parser.add_argument("-f", "--fix", help="Fix for broken rendering", action="store_true")
     args = parser.parse_args()
 
-    interactive = Interactive(args.default_file, args.model_path_ours, args.model_path_interobject3d)
+    interactive = Interactive(args.default_file, args.model_path_ours, args.model_path_interobject3d, args.fix)
     interactive.run()

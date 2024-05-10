@@ -137,6 +137,7 @@ def get_output_point_cloud(coords, feats, labels, pred):
     colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
     colors[pred.cpu().numpy()[:, 0] == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
+    colors[feats.cpu().numpy()[:, 4] == 1] = [1, 0, 1] # maskPositive input PURPLE
     point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
     return point_cloud

@@ -68,10 +68,27 @@ class DataLoader:
                 random.shuffle(points)
                 
                 # groups of 1,1,2,2,3 clicks
-                points = [points[0:1], points[1:2], points[2:4], points[4:6], points[6:9]]
+                pointsP = [points[0:1], points[1:2], points[2:4], points[4:6], points[6:9]]
                 random.shuffle(points)
+                   
+                # Negative click simulation
+                # pcd_copy = o3d.geometry.PointCloud()
+                # pts = pcd.point.positions.numpy()
+                # # Select labeled object and calculate center
+                # pcd_copy.points = o3d.utility.Vector3dVector(np.array(pts)[group])
+                # center = pcd_copy.get_center()
+                # # Select everything but the labeled object, get 4 points close to selected object
+                # pcd_copy.points = o3d.utility.Vector3dVector(np.array([pts[i] for i in range(len(pts)) if i not in group]))
+                # pcd_tree = o3d.geometry.KDTreeFlann(pcd_copy)
+                # [_, idx, _] = pcd_tree.search_knn_vector_3d(center, 4000)   
+                # random_indices = random.sample(sorted(idx[2000:]), 4)
+                # random.shuffle(random_indices)
+                
+                # # groups of 0,1,0,1,2
+                # pointsN = [[], random_indices[0:1], [], random_indices[1:2], random_indices[2:4]]
+                pointsN = [[],[],[],[],[]] 
 
-                self.data[file].append(points)
+                self.data[file].append(list(zip(pointsP, pointsN)))
             random.shuffle(self.data[file])
             
         print('')
@@ -111,16 +128,21 @@ class DataLoader:
             pcd = pcd.uniform_down_sample(every_k_points=self.downsample)
         
     
+        # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
+        # It's ugly but it works
+        pcd_tree = o3d.geometry.PointCloud()
+        pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
+        tree = o3d.geometry.KDTreeFlann(pcd_tree)
+    
         # Create a click area for each simulated point
-        for point in random_points:
-            # Create a copy of the pointcloud (KDTreeFlann doesn't support o3d.t.geometry.PointCloud or idk)
-            # It's ugly but it works
-            pcd_tree = o3d.geometry.PointCloud()
-            pcd_tree.points = o3d.utility.Vector3dVector(pcd.point.positions.numpy())
-            tree = o3d.geometry.KDTreeFlann(pcd_tree)
+        for point in random_points[0]:
             [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[point], self.click_area)
             for i in idx:
                 pcd.point.maskPositive[i] = 1
+        for point in random_points[1]:
+            [_, idx, _] = tree.search_radius_vector_3d(pcd_tree.points[point], self.click_area)
+            for i in idx:
+                pcd.point.maskNegative[i] = 1
 
         # Get group id for label
         group = pcd.point.group[random_points[0]].numpy()[0]
