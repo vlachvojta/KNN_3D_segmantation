@@ -26,6 +26,8 @@ def parseargs():
     parser.add_argument("-v", "--verbose", default=True)
     parser.add_argument("-mi", "--max_imgs",  type=int, default=20,
                         help="Number of maximum saved image samples (default: 20)")
+    parser.add_argument("-c", "--click_area",  type=int, default=0.1,
+                        help="Click area (default: 0.1)")
 
     return parser.parse_args()
 
@@ -41,6 +43,7 @@ def main(args):
         downsample = args['downsample'] if 'downsample' in args else 0
         verbose = args['verbose']
         max_imgs = args['max_imgs']
+        click_area = args['click_area']
 
     else:
         src_path = args.src_path
@@ -53,15 +56,15 @@ def main(args):
         downsample = args.downsample if hasattr(args, 'downsample') else 0
         verbose = args.verbose
         max_imgs = args.max_imgs
-
-    
-    print(f'args: {args}')
+        click_area = args.click_area
+    del args['inseg_global']  # delete before printing
+    print(f'compute_iou args: {args}')
 
     utils.ensure_folder_exists(output_dir)
     # print('Args:', args) # Debug print only
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(src_path, click_area=0.05, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
+    data_loader = DataLoader(src_path, click_area=click_area, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
 
     print(f'{len(data_loader)} elements in data loader')
 
@@ -102,11 +105,11 @@ def main(args):
                   f'         logits({logits.shape})')
             print(f'labels: labels({labels.shape})')
 
-        iou = inseg_model_class.mean_iou(pred, labels)
+        iou = inseg_model_class.mean_iou(pred, labels).cpu()
         if verbose:
             print(f'iou: {iou}')
-        
-        if max_imgs > i:
+
+        if i < max_imgs:
             output_point_cloud = get_output_point_cloud(coords, feats, labels, pred)
             if show_3d:
                 o3d.visualization.draw_geometries([output_point_cloud])
@@ -132,7 +135,7 @@ def get_output_point_cloud(coords, feats, labels, pred):
 
     colors = feats.cpu().numpy()[:, :3]
     colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
-    colors[pred.cpu().numpy()[:, 0] == 1] = [1, 0, 0] # maskPositive output RED
+    colors[pred.cpu().numpy()[:, 0] == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
     point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
