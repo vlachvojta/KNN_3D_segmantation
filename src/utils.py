@@ -88,3 +88,16 @@ def save_tensor_to_txt(tensor, filename):
     if isinstance(tensor, torch.Tensor):
         tensor = tensor.cpu().numpy()
     np.savetxt(filename, tensor)
+
+def get_output_point_cloud(coords, feats, labels, pred):
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(coords.cpu().numpy())
+
+    colors = feats.cpu().numpy()[:, :3]
+    colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
+    colors[pred.cpu().numpy()[:, 0] == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
+    colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
+    colors[feats.cpu().numpy()[:, 4] == 1] = [1, 0, 1] # maskNegative input PURPLE
+    point_cloud.colors = o3d.utility.Vector3dVector(colors)
+
+    return point_cloud
