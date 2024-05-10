@@ -100,7 +100,7 @@ def main(args):
     train_dataset = CustomDataLoader(args.dataset_path, verbose=False, click_area=args.click_area)
 
     # create cache for validation dataset
-    val_dataloader = CustomDataLoader(args.val_dataset, verbose=False, click_area=args.click_area)
+    val_dataloader = CustomDataLoader(args.val_dataset, verbose=False, click_area=args.click_area, limit_to_one_object=True)
 
     train_dataloader = DataLoader(
         train_dataset,

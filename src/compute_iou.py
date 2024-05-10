@@ -64,7 +64,7 @@ def main(args):
     # print('Args:', args) # Debug print only
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    data_loader = DataLoader(src_path, click_area=click_area, normalize_colors=True, downsample=downsample, limit_to_one_object=limit_to_one_object)
+    data_loader = DataLoader(src_path, click_area=click_area, normalize_colors=True, verbose=verbose, downsample=downsample, limit_to_one_object=limit_to_one_object)
 
     print(f'{len(data_loader)} elements in data loader')
 
