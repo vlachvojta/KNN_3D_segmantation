@@ -223,7 +223,6 @@ class Interactive:
         
     def fileOpenModelOur(self):
         fileDialog = gui.FileDialog(gui.FileDialog.OPEN, "Select file", self.GUI_Window.theme)
-        fileDialog.set_path(self.pcd_path)
         fileDialog.add_filter(".pth", "PyTorch model (.pth)")
         fileDialog.add_filter("", "All files")
         fileDialog.set_on_cancel(self.fileCancel)
@@ -241,7 +240,6 @@ class Interactive:
         
     def fileOpenModelIO3D(self):
         fileDialog = gui.FileDialog(gui.FileDialog.OPEN, "Select file", self.GUI_Window.theme)
-        fileDialog.set_path(self.pcd_path)
         fileDialog.add_filter(".pth", "PyTorch model (.pth)")
         fileDialog.add_filter("", "All files")
         fileDialog.set_on_cancel(self.fileCancel)
