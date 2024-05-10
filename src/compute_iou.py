@@ -44,7 +44,7 @@ def main(args):
         verbose = args['verbose']
         max_imgs = args['max_imgs']
         click_area = args['click_area']
-
+        del args['inseg_global']  # delete before printing
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -57,7 +57,7 @@ def main(args):
         verbose = args.verbose
         max_imgs = args.max_imgs
         click_area = args.click_area
-    del args['inseg_global']  # delete before printing
+        del args.inseg_global  # delete before printing
     print(f'compute_iou args: {args}')
 
     utils.ensure_folder_exists(output_dir)
