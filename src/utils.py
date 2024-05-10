@@ -9,7 +9,7 @@ import torch
 
 
 def ensure_folder_exists(folder_path):
-    if not os.path.exists(os.path.dirname(folder_path)):
+    if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
 
 
@@ -26,7 +26,7 @@ def save_point_cloud_views(point_cloud, iou, i, path, verbose=True):
 
 
 def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
-    ensure_folder_exists(file_path)
+    ensure_folder_exists(os.path.dirname(file_path))
     remove_file_suffix(file_path)
     if verbose:
         print(f'Saving file to {file_path}')
@@ -74,14 +74,14 @@ def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
             pil_img = Image.fromarray(np.array(img).astype('uint8'), 'RGB')
             output_img.paste(pil_img, (i*width + 2*i, height+2))
 
-        output_img.save(f"{file_path}.png")
+        output_img.save(f"{file_path}")
     else:
         vis = o3d.visualization.Visualizer()
         vis.create_window()
         vis.get_render_option().point_color_option = o3d.visualization.PointColorOption.Color
         vis.get_render_option().point_size = 3.0
         vis.add_geometry(point_cloud)
-        vis.capture_screen_image(f"{file_path}_view_0.png", do_render=True)
+        vis.capture_screen_image(f"{file_path}", do_render=True)
         vis.destroy_window()
 
 def save_tensor_to_txt(tensor, filename):
