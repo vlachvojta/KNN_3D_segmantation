@@ -12,13 +12,15 @@ random.seed(time.time())
 
 
 class DataLoader:
-    def __init__(self, data_path, click_area=0.05, downsample=0, force=False, verbose=True, normalize_colors=False, limit_to_one_object=False):
+    def __init__(self, data_path, click_area=0.05, downsample=0, force=False, 
+                 verbose=True, normalize_colors=False, limit_to_one_object=False, voxel_size=0):
         self.data_path = data_path
         self.click_area = click_area
         self.downsample = downsample
         self.force = force
         self.verbose = verbose
         self.normalize_colors = normalize_colors
+        self.voxel_size = voxel_size
 
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
@@ -146,15 +148,17 @@ class DataLoader:
 
         # Get group id for label
         group = pcd.point.group[random_points[0]].numpy()[0]
-        
+
         # Create a mask with the same group as the clicked point
         label = (pcd.point.group.numpy() == group)
         label = o3d.core.Tensor(label, o3d.core.uint8, o3d.core.Device("CPU:0")).numpy() #(dtype=np.int8)
 
         # Add tuple of pointcloud and label to batch
         coords = pcd.point.positions.numpy()
+        if self.voxel_size > 0:
+            coords = coords / self.voxel_size
+
         feats = np.concatenate((pcd.point.colors.numpy(), pcd.point.maskPositive.numpy(), pcd.point.maskNegative.numpy()), axis=1, dtype=np.float32)
-        
         if self.normalize_colors:
             feats[:, :3] = feats[:, :3] / 255
 
