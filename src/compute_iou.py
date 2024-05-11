@@ -93,17 +93,9 @@ def main(args):
         coords = torch.tensor(coords).float().to(device)
         feats = torch.tensor(feats).float().to(device)
         labels = torch.tensor(labels).long().to(device)
-        if verbose:
-            print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-            print(f'inputs: feats({feats.shape})\n'
-                  f'        coords({coords.shape})')
         pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
         pred = torch.unsqueeze(pred, dim=-1)
-        if verbose:
-            print(f'outputs: pred({pred.shape})\n'
-                  f'         logits({logits.shape})')
-            print(f'labels: labels({labels.shape})')
 
         iou = inseg_model_class.mean_iou(pred, labels).cpu()
         if verbose:
