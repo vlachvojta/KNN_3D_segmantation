@@ -32,8 +32,9 @@ class DataLoader:
         self.cache_path = os.path.join(data_path, "dataloader_cache_ds" + str(downsample) + "_nc" + str(n_of_clicks) + ".pkl")
 
         # Load from cache
-        if os.path.exists(os.path.join(data_path, "classes.pkl")):
-            self.classes = self.load_from_cache("../dataset/classes.pkl")
+        classes_path = os.path.join("..", "dataset", "classes.pkl")
+        if os.path.exists(classes_path):
+            self.classes = self.load_from_cache(classes_path)
         else:
             self.classes = None
 
