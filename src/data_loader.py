@@ -25,7 +25,7 @@ class DataLoader:
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
 
         # self.cache_path = os.path.join(data_path, "dataloader_cache")
-        self.cache_path = os.path.join(data_path, "dataloader_cache_ca" + str(click_area) + "_ds" + str(downsample) + ".pkl")
+        self.cache_path = os.path.join(data_path, "dataloader_cache_ds" + str(downsample) + ".pkl")
 
         # Load from cache
         if os.path.exists(self.cache_path):
@@ -36,7 +36,7 @@ class DataLoader:
                 self.len = self.remaining_unique_elements()
                 return
 
-        self.data = {}   
+        self.data = {}
 
         print(f'\nCreating DataLoader with click_area={click_area} and downsample={downsample}, processing {len([f for f in os.scandir(data_path)])} files.')
         # Process each area
