@@ -22,9 +22,7 @@ for model_dir in InterObject3D_pretrained OUR_click_0.1 OUR_downsampled_click_0.
         -o $OUTPUT_DIR \
         -s ../dataset/S3DIS_converted_downsampled_new/test/ \
         --max_imgs 3 \
-        --limit_to_one_object \
         -c 0.07 \
-        -v \
         -vs 0.07 \
         2>&1 | tee -a $OUTPUT_DIR/compute_iou.log
 done
