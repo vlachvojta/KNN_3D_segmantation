@@ -99,7 +99,7 @@ def main(args):
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
         lr=args.lr)
-    criterion = torch.nn.BCELoss() #ignore_index=-100)
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
 
     train_dataset = CustomDataLoader(args.dataset_path, verbose=False, click_area=args.click_area, normalize_colors=True, voxel_size=args.voxel_size)
 
@@ -134,6 +134,7 @@ def main(args):
                 torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
 
             if args.test_step > 0 and train_step % args.test_step == 0:
+                inseg_global_model.eval()
                 print('\n\n-------------------------------------------------------------------------------------')
                 print(f'Epoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
@@ -156,6 +157,7 @@ def main(args):
                 plot_stats(train_losses, val_ious, train_ious, train_step, args.stats_path)
                 test_step_time = time.time()
                 print('-------------------------------------------------------------------------------------\n')
+                inseg_global_model.train()
 
             if train_step % args.save_step == 0:
                 save_step(inseg_global_model, args.output_dir, train_step)
@@ -180,15 +182,16 @@ def main(args):
             # voxelized output
             sout = inseg_global_model(sinput)
             optimizer.zero_grad()
-            sout_for_loss = torch.softmax(sout.F, dim=1)
-            loss = criterion(sout_for_loss, slabels.F)
+            # sout_for_loss = torch.softmax(sout.F, dim=1)
+            # loss = criterion(sout_for_loss, slabels.F)
+            loss = criterion(sout.F, slabels.F)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
             train_iou_before_slice = inseg_model_class.mean_iou(sout.F.argmax(dim=1), slabels.F.argmax(dim=1)).cpu()
 
             # save first 10 voxelized point clouds (first out of every batch) for every test_step
-            if args.test_step > 0 and train_step % args.test_step < 10:
+            if args.test_step > 0 and train_step % args.test_step < 5:
                 train_step_to_save = train_step - (train_step %  args.test_step)
                 visualize_one_voxelized_point_cloud(sinput, slabels, sout, train_iou_before_slice,
                                                     os.path.join(args.output_dir, f'train_results_{train_step_to_save}'),

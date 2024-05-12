@@ -120,5 +120,5 @@ def get_output_point_cloud(coords, feats, labels, pred=None):
 
 def get_model(pretrained_weights_file, device):
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-    global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
+    global_model = inseg_global.create_model(inseg_global.pretraining_weights_file, device=device)
     return inseg_global, global_model
