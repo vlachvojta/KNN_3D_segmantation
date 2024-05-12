@@ -40,6 +40,7 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 
 from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
+from InterObject3D import minkunet
 from data_loader import DataLoader as CustomDataLoader
 import compute_iou
 import utils
@@ -60,6 +61,8 @@ def parse_args():
 
     parser.add_argument("-m", "--pretrained_model_path", type=str, default=None,
                         help="Pretrained model path to start training with (default: None)")
+    parser.add_argument("-mc", "--model_class", type=str, default='MinkUNet34C',
+                        help="Model class to use (default: MinkUNet34C)")
     parser.add_argument('-o', '--output_dir', type=str, default='../training/InterObject3D_test',
                         help='Where to store training progress.')
     parser.add_argument('-l', '--validation_out', type=str, default='../val_results/',
@@ -91,7 +94,7 @@ def main(args):
     utils.ensure_folder_exists(args.output_dir)
     utils.ensure_folder_exists(args.stats_path)
 
-    inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, device)
+    inseg_model_class, inseg_global_model, train_step = get_model(args.pretrained_model_path, args.output_dir, args.model_class, device)
 
     optimizer = optim.SGD(
         inseg_global_model.parameters(),
@@ -202,22 +205,23 @@ def main(args):
 
         print(f'\n\nEpoch {epoch} took {utils.timeit(epoch_time)}')
 
-def get_model(pretrained_weights_file, output_dir, device):
+def get_model(pretrained_weights_file, output_dir, model_class, device):
     # try to find model in output_dir
-    models = [re.match(r'model_(\d+).pth', f).groups()[0] for f in os.listdir(output_dir) 
-              if re.match(r'model_(\d+).pth', f)]
+    model_regex = r'(model|MinkUnet\d{2,3}[A-Z]?)_(\d+).pth'
+    models = [re.match(model_regex, f).groups()[0] for f in os.listdir(output_dir) 
+              if re.match(model_regex, f)]
 
     trained_steps = 0
     if models:
         trained_steps = max([int(model) for model in models])
         pretrained_weights_file = os.path.join(output_dir, f'model_{trained_steps}.pth')
 
-    if not pretrained_weights_file or not os.path.exists(pretrained_weights_file):
-        raise FileNotFoundError(f'Pretrained model not found at {pretrained_weights_file}')
+    # if not pretrained_weights_file or not os.path.exists(pretrained_weights_file):
+    #     raise FileNotFoundError(f'Pretrained model not found at {pretrained_weights_file}')
 
     print(f'Loading model from {pretrained_weights_file}')
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-    global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
+    global_model = inseg_global.create_model(inseg_global.pretraining_weights_file, model_class, device)
     return inseg_global, global_model, trained_steps
 
 def load_stats(saved_loss, val_ious, train_ious):
@@ -278,7 +282,7 @@ def tensor_too_big(sinput, max_size) -> bool:
 
 
 def save_step(model, path, train_step):
-    export_path = os.path.join(path, f'model_{train_step}.pth')
+    export_path = os.path.join(path, f'{model.__class__.__name__}_{train_step}.pth')
     torch.save(model.state_dict(), export_path)
     print(f'Model saved to: {export_path}\n')
 
