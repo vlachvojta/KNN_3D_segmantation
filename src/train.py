@@ -127,10 +127,10 @@ def main(args):
         for _ in range(train_steps_in_epoch):
             train_batch = next(train_iter)
 
-            if train_step % 10 == 0:
+            if train_step % 5 == 0:
                 torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
 
-            if train_step % args.test_step == 0:
+            if args.test_step > 0 and train_step % args.test_step == 0:
                 print('\n\n-------------------------------------------------------------------------------------')
                 print(f'Epoch: {epoch} train_step: {train_step}, mean loss: {sum(train_losses[-args.test_step:]) / args.test_step:.2f}, '
                       f'time of test_step: {utils.timeit(test_step_time)}, '
@@ -144,7 +144,7 @@ def main(args):
                             'show_3d': False,
                             'limit_to_one_object': True,
                             'verbose': False,
-                            'max_imgs': 20,
+                            'max_imgs': 5,
                             'click_area': args.click_area,
                             'voxel_size': voxel_size}
                 val_iou = compute_iou.main(iou_args)
@@ -162,15 +162,16 @@ def main(args):
             # point cloud inputs
             coords, feats, labels = train_batch
             labels = labels_to_logit_shape(labels)
-            labels = labels.float().to(device)
-            feats = feats.float().to(device)
+            labels = labels.float()
+            feats = feats.float()
 
             # voxelized input
             super_feats = torch.cat((feats, labels), dim=1)
             super_sinput = ME.SparseTensor(super_feats.float(), coords, device=device)
             sinput = ME.SparseTensor(super_sinput.F[:, :-2], super_sinput.C, device=device)
             slabels = ME.SparseTensor(super_sinput.F[:, -2:], super_sinput.C, device=device)
-            if not clicks_in_sinput(sinput, args.batch_size) or not labels_in_sinput(slabels):
+            print(F'{sinput.F.shape=}, {slabels.F.shape=}')
+            if not clicks_in_sinput(sinput, args.batch_size) or not labels_in_sinput(slabels) or tensor_too_big(sinput, 610000):
                 continue
 
             # voxelized output
@@ -182,7 +183,9 @@ def main(args):
             optimizer.step()
             train_losses.append(loss.item())
             train_iou_before_slice = inseg_model_class.mean_iou(sout.F.argmax(dim=1), slabels.F.argmax(dim=1)).cpu()
-            if train_step % args.test_step < 10:
+
+            # save first 10 voxelized point clouds (first out of every batch) for every test_step
+            if args.test_step > 0 and train_step % args.test_step < 10:
                 train_step_to_save = train_step - (train_step %  args.test_step)
                 visualize_one_voxelized_point_cloud(sinput, slabels, sout, train_iou_before_slice,
                                                     os.path.join(args.output_dir, f'train_results_{train_step_to_save}'),
@@ -190,9 +193,8 @@ def main(args):
 
             # point cloud output
             out = sout.slice(super_sinput)
-            out = out.F.argmax(dim=1)
+            out = out.F.argmax(dim=1).cpu()
             labels = labels.argmax(dim=1)
-            # print(f'{out.shape=}, {labels.shape=}')
             train_iou = inseg_model_class.mean_iou(out, labels).cpu()
             train_ious.append(train_iou)
             print(f'train_loss: {loss.item():.5f}, train_iou_before_slice: {train_iou_before_slice:.5f}, train_iou: {train_iou:.5f}')
@@ -267,6 +269,13 @@ def labels_in_sinput(slabels) -> bool:
         return False
 
     return True
+
+def tensor_too_big(sinput, max_size) -> bool:
+    if sinput.F.shape[0] > max_size:
+        print(f'!!! Skipping batch !!! More elements then max_size: {sinput.F.shape[0]} > {max_size}')
+        return True
+    return False
+
 
 def save_step(model, path, train_step):
     export_path = os.path.join(path, f'model_{train_step}.pth')
