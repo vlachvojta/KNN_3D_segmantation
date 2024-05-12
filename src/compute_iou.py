@@ -103,6 +103,8 @@ def main(args):
 
         iou = inseg_model_class.mean_iou(pred, labels).cpu()
         if verbose:
+            if data_loader.last_class is not None:
+                print(f'class: {data_loader.last_class}')
             print(f'iou: {iou}')
 
         if i < max_imgs:
