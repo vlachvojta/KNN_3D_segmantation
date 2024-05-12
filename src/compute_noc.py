@@ -88,8 +88,15 @@ def main():
                 data_loader.next_random_batch()
                 break
             elif (clicks == args.max_clicks):
+                if i < args.max_imgs:
+                    output_point_cloud = utils.get_output_point_cloud(coords, feats, labels, pred)
+                    if args.show_3d:
+                        o3d.visualization.draw_geometries([output_point_cloud])
+                    utils.save_point_cloud_views(output_point_cloud, iou, i, args.output_dir, args.verbose)
+                
                 results.append(clicks)
                 data_loader.next_random_batch()
+                
                 print(f'Segmented object no.: {i}')
                 print(f'iou: {iou}')
                 
