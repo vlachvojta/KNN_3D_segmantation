@@ -26,11 +26,17 @@ class DataLoader:
         assert os.path.exists(data_path), "Data path does not exist. Choose a valid path to a dataset."
         
         self.selected_object = None
+        self.last_class = None
 
         # self.cache_path = os.path.join(data_path, "dataloader_cache")
         self.cache_path = os.path.join(data_path, "dataloader_cache_ds" + str(downsample) + "_nc" + str(n_of_clicks) + ".pkl")
 
         # Load from cache
+        if os.path.exists(os.path.join(data_path, "classes.pkl")):
+            self.classes = self.load_from_cache("../dataset/classes.pkl")
+        else:
+            self.classes = None
+
         if os.path.exists(self.cache_path):
             if force:
                 os.remove(self.cache_path)
@@ -115,6 +121,9 @@ class DataLoader:
 
         # Get group id for label
         group = pcd.point.group[points].numpy()[0]
+        
+        if self.classes:
+            self.last_class = self.classes[area.split('/')[-1]][group[0]]
 
         # Create a mask with the same group as the clicked point
         label = (pcd.point.group.numpy() == group)
