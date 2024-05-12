@@ -80,6 +80,7 @@ def main(args):
         inseg_global_model = inseg_global
 
     results = []
+    results_classes = {}
 
     i = 0
 
@@ -112,14 +113,26 @@ def main(args):
             if show_3d:
                 o3d.visualization.draw_geometries([output_point_cloud])
             utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir, verbose)
+            
         results.append(iou)
+        if data_loader.last_class is not None:
+            if not data_loader.last_class in results_classes.keys():
+                results_classes[data_loader.last_class] = []
+            results_classes[data_loader.last_class].append(iou)
+   
         if verbose:
-            print(f'Mean iou so far: {sum(results) / len(results)}')
+            if data_loader.last_class is not None:
+                print(f'Mean iou so far ({data_loader.last_class}): {sum(results_classes[data_loader.last_class]) / len(results_classes[data_loader.last_class])}')
+            print(f'Mean iou so far (total): {sum(results) / len(results)}')
         i += 1
 
     # print result mean
     if verbose:
-        print(f'Mean IoU: {sum(results) / len(results)}')
+        print(f'Mean IoU (total): {sum(results) / len(results)}')
+        if len(results_classes.keys()) > 0:
+            for key in results_classes.keys():
+                print(f'Mean IoU ({key}): {sum(results_classes[key]) / len(results_classes[key])}')
+                
     return sum(results) / len(results) if len(results) > 0 else 0
 
 # def get_model(pretrained_weights_file, device):
