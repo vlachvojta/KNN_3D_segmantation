@@ -102,13 +102,10 @@ def main():
                 
                 print(f'Mean NOC so far: {sum(results) / len(results)}\n')        
         i += 1
-    
-    print(f'Mean NOC: {sum(results) / len(results)}')
 
-def get_model(pretrained_weights_file, device):
-    inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-    global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
-    return inseg_global, global_model
+    print(f'Mean NOC: {sum(results) / len(results)}')
+    print(f'{args.k_iou},{sum(results) / len(results):.4f}', file=open(f'{args.output_dir}/../result.txt', 'a'))
+
 
 if __name__ == "__main__":
     main()

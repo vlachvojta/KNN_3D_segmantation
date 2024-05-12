@@ -132,13 +132,13 @@ def main(args):
         if len(results_classes.keys()) > 0:
             for key in results_classes.keys():
                 print(f'Mean IoU ({key}): {sum(results_classes[key]) / len(results_classes[key])}')
-                
-    return sum(results) / len(results) if len(results) > 0 else 0
 
-# def get_model(pretrained_weights_file, device):
-#     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-#     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
-#     return inseg_global, global_model
+    print(f'total,{sum(results) / len(results):.4f}', file=open(f'{output_dir}/results.txt', 'a'))
+    if len(results_classes.keys()) > 0:
+        for key in results_classes.keys():
+            print(f'{key},{sum(results_classes[key]) / len(results_classes[key]):.4f}', file=open(f'{output_dir}/results.txt', 'a'))
+
+    return sum(results) / len(results) if len(results) > 0 else 0
 
 
 if __name__ == "__main__":
