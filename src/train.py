@@ -145,7 +145,8 @@ def main(args):
                             'limit_to_one_object': True,
                             'verbose': False,
                             'max_imgs': 20,
-                            'click_area': args.click_area}
+                            'click_area': args.click_area,
+                            'voxel_size': voxel_size}
                 val_iou = compute_iou.main(iou_args)
                 val_ious.append(val_iou)
                 print(f'Validation finished with mean IOU: {val_iou}')

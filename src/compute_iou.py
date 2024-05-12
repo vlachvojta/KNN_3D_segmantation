@@ -23,11 +23,13 @@ def parseargs():
     parser.add_argument("-g", "--inseg_global", default=None)
     parser.add_argument("-l", "--limit_to_one_object", action='store_true',
                         help="Limit objects in one room to one random object (default: False).")
-    parser.add_argument("-v", "--verbose", default=True)
     parser.add_argument("-mi", "--max_imgs",  type=int, default=20,
                         help="Number of maximum saved image samples (default: 20)")
     parser.add_argument("-c", "--click_area",  type=float, default=0.1,
                         help="Click area (default: 0.1)")
+    parser.add_argument("-vs", "--voxel_size", default=0.05, type=float,
+                        help="The size data points are converting to (default: 0.05)")
+    parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
     return parser.parse_args()
 
@@ -45,6 +47,7 @@ def main(args):
         max_imgs = args['max_imgs']
         click_area = args['click_area']
         del args['inseg_global']  # delete before printing
+        voxel_size = args['voxel_size']
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -58,6 +61,7 @@ def main(args):
         max_imgs = args.max_imgs
         click_area = args.click_area
         del args.inseg_global  # delete before printing
+        voxel_size = args.voxel_size
     print(f'compute_iou args: {args}')
 
     utils.ensure_folder_exists(output_dir)
@@ -70,7 +74,7 @@ def main(args):
 
     # load model from path
     if (inseg_model == None):
-        inseg_model_class, inseg_global_model = get_model(model_path, device)
+        inseg_model_class, inseg_global_model = utils.get_model(model_path, device)
     else:
         inseg_model_class = inseg_model
         inseg_global_model = inseg_global
@@ -94,7 +98,7 @@ def main(args):
         feats = torch.tensor(feats).float().to(device)
         labels = torch.tensor(labels).long().to(device)
 
-        pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
+        pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device, voxel_size=voxel_size)
         pred = torch.unsqueeze(pred, dim=-1)
 
         iou = inseg_model_class.mean_iou(pred, labels).cpu()
@@ -116,10 +120,11 @@ def main(args):
         print(f'Mean IoU: {sum(results) / len(results)}')
     return sum(results) / len(results) if len(results) > 0 else 0
 
-def get_model(pretrained_weights_file, device):
-    inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-    global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
-    return inseg_global, global_model
+# def get_model(pretrained_weights_file, device):
+#     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
+#     global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
+#     return inseg_global, global_model
+
 
 if __name__ == "__main__":
     args = parseargs()
