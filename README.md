@@ -25,3 +25,4 @@ Použili jsme předtrénovaný MinkUnet (Minkowski Engine), což je síť na sty
 
 Minkowski engine (torch extension): [docu](https://nvidia.github.io/MinkowskiEngine/) [GitHub](https://github.com/NVIDIA/MinkowskiEngine)
 
+Kód ve složce `src/InterObject3D` byl převzat a následně upraven z repozitáře [github.com/theodorakontogianni/InterObject3D](https://github.com/theodorakontogianni/InterObject3D)

@@ -1,12 +1,14 @@
 #!/bin/bash
 
-for model_dir in InterObject3D_pretrained OUR_click_0.1 OUR_downsampled_click_0.1 OUR_downsampled_click_0.7_voxel_0.7; do
+# for model_dir in InterObject3D_pretrained OUR_click_0.1 OUR_downsampled_click_0.1 OUR_downsampled_click_0.7_voxel_0.7; do
+for model_dir in OUR_downsampled_click_0.1 OUR_downsampled_click_0.7_voxel_0.7 InterObject3D_pretrained; do
     model=`ls ../training_result_models/$model_dir/*.pth`
 
-    for noc in 80 85 90; do
+    # for noc in 80 85 90; do
+    for noc in 90; do
         OUTPUT_DIR="../results/compute_noc_downsampled/$model_dir/kIOU_$noc"
         mkdir -p $OUTPUT_DIR
-        
+
         echo ""
         echo ""
         echo ""
@@ -21,7 +23,7 @@ for model_dir in InterObject3D_pretrained OUR_click_0.1 OUR_downsampled_click_0.
         python compute_noc.py \
             -m $model \
             -o $OUTPUT_DIR \
-            -s ../dataset/S3DIS_converted_downsampled_new/test/ \
+            -s ../dataset/S3DIS_converted_downsampled_new_mini/test/ \
             --max_imgs 3 \
             --max_clicks 20 \
             -c 0.07 \
