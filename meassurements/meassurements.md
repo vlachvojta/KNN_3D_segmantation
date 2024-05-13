@@ -1,14 +1,20 @@
 # Meassurements
 
-## IOU from compute_iou - WITH OLD DATALOADER
+## Výsledky IOU pro 3 body 
+| Model                   | IOU total | board | bookcase | ceiling | clutter | table | wall  | window | ... |
+|-------------------------|-----------|-------|----------|---------|---------|-------|-------|--------|-----|
+| Pretrained              | 41.87     | 36.70 | 40.36    | 69.70   | 37.22   | 40.25 | 48.08 | 26.39  | ... |
+| OUR_voxel_0.5_click_0.1 | 39.50     | 38.15 | 40.71    | 65.60   | 35.24   | 38.96 | 45.54 | 24.72  | ... |
+| OUR_voxel_0.7_click_0.7 | 44.10     | 34.31 | 38.76    | 69.14   | 41.54   | 40.73 | 45.78 | 26.46  | ... |
 
-### click area 0.1
-- original dataset: 29.6 % after 1247 batches
-- downsampled: 32.2 % after 530 batches
 
-### click area 0.05
-- original dataset: 34.6 % after 400 batches
-- downsampled: 32.5 % after 1618 batches
+## NoC k IOU
+|                          | 80 % IOU | 85 % IOU  |
+|--------------------------|----------|-----------|
+| InterObject3D_pretrained | 12.96    | 14.76     |
+| OUR_voxel_0.5_click_0.1  | 10.29    | 11.77     |
+| OUR_voxel_0.7_click_0.7  | **9.5**  | **11.01** |
+
 
 ## IOU from compute_iou - WITH NEW dataloader
 

@@ -6,7 +6,8 @@ import numpy as np
 import platform
 from PIL import Image
 import torch
-
+from InterObject3D.interactive_adaptation import InteractiveSegmentationModel
+# import sys, os
 
 def ensure_folder_exists(folder_path):
     if not os.path.exists(folder_path):
@@ -36,8 +37,13 @@ def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
         width = 640
         height = 480
         
+        # print('\tin the middle of rendering 1')
+        # blockPrint()
         render =  o3d.visualization.rendering.OffscreenRenderer(width, height)
+        # print('\tin the middle of rendering 2')
         render.scene.add_geometry("pcd", point_cloud, o3d.visualization.rendering.MaterialRecord())
+        # enablePrint()
+        # print('\tin the middle of rendering 3')
         
         # Get center and corner points of bounding box
         center = point_cloud.get_center()
@@ -52,7 +58,7 @@ def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
                  (points[6] + points[4] + points[1] + points[7]) / 4,
                  (points[3] + points[4] + points[5] + points[6]) / 4,
                  (points[0] + points[1] + points[2] + points[7]) / 4]
-        
+
     
         # Create image containing every view side by side
         output_img = Image.new('RGB', ((width*len(faces) + 2*(len(faces)-1)), (height*2)+2))
@@ -75,6 +81,7 @@ def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
             output_img.paste(pil_img, (i*width + 2*i, height+2))
 
         output_img.save(f"{file_path}")
+        # print('\tin the middle of rendering 4')
     else:
         vis = o3d.visualization.Visualizer()
         vis.create_window()
@@ -84,20 +91,34 @@ def save_point_cloud_views_with_window(point_cloud, file_path, verbose):
         vis.capture_screen_image(f"{file_path}", do_render=True)
         vis.destroy_window()
 
+# # Disable
+# def blockPrint():
+#     sys.stdout = open(os.devnull, 'w')
+
+# # Restore
+# def enablePrint():
+#     sys.stdout = sys.__stdout__
+
 def save_tensor_to_txt(tensor, filename):
     if isinstance(tensor, torch.Tensor):
         tensor = tensor.cpu().numpy()
     np.savetxt(filename, tensor)
 
-def get_output_point_cloud(coords, feats, labels, pred):
+def get_output_point_cloud(coords, feats, labels, pred=None):
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(coords.cpu().numpy())
 
     colors = feats.cpu().numpy()[:, :3]
     colors[labels.cpu().numpy().reshape(-1) == 1] = [0, 1, 0] # Label GREEN
-    colors[pred.cpu().numpy()[:, 0] == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
+    if pred is not None:
+        colors[pred.cpu().numpy().reshape(-1) == 1] += [1, 0, 0] # maskPositive output RED (label + maskPositive = YELLOW)
     colors[feats.cpu().numpy()[:, 3] == 1] = [0, 0, 1] # maskPositive input BLUE
     colors[feats.cpu().numpy()[:, 4] == 1] = [1, 0, 1] # maskNegative input PURPLE
     point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
     return point_cloud
+
+def get_model(pretrained_weights_file, device):
+    inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
+    global_model = inseg_global.create_model(inseg_global.pretraining_weights_file, device=device)
+    return inseg_global, global_model

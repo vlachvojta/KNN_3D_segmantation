@@ -268,8 +268,10 @@ class InteractiveSegmentationModel(object):
         self.pretraining_weights_file = pretraining_weights
 
 
-    def create_model(self, device, pretrained_weights_file=None):
-        model = MinkUNet34C(in_channels=5, out_channels=2, D=3).to(device)
+    def create_model(self, pretrained_weights_file=None, model_class='MinkUNet34C', device='cuda'):
+        model = eval(model_class)(in_channels=5, out_channels=2, D=3).to(device)
+        # model = MinkUNet34C(in_channels=5, out_channels=2, D=3).to(device)
+
         if pretrained_weights_file:
             #  Get weights
             weights = pretrained_weights_file
@@ -279,7 +281,7 @@ class InteractiveSegmentationModel(object):
                 map_location = 'cpu' if device == 'cpu' else None
                 model_dict = torch.load(weights, map_location)
             model.load_state_dict(model_dict)
-           # print('Pretrained weights loaded.')
+            # print('Pretrained weights loaded.')
         return model
 
 

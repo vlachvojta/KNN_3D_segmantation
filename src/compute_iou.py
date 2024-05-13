@@ -23,11 +23,13 @@ def parseargs():
     parser.add_argument("-g", "--inseg_global", default=None)
     parser.add_argument("-l", "--limit_to_one_object", action='store_true',
                         help="Limit objects in one room to one random object (default: False).")
-    parser.add_argument("-v", "--verbose", default=True)
     parser.add_argument("-mi", "--max_imgs",  type=int, default=20,
                         help="Number of maximum saved image samples (default: 20)")
     parser.add_argument("-c", "--click_area",  type=float, default=0.1,
                         help="Click area (default: 0.1)")
+    parser.add_argument("-vs", "--voxel_size", default=0.05, type=float,
+                        help="The size data points are converting to (default: 0.05)")
+    parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
     return parser.parse_args()
 
@@ -45,6 +47,7 @@ def main(args):
         max_imgs = args['max_imgs']
         click_area = args['click_area']
         del args['inseg_global']  # delete before printing
+        voxel_size = args['voxel_size']
     else:
         src_path = args.src_path
         model_path = args.model_path
@@ -58,6 +61,7 @@ def main(args):
         max_imgs = args.max_imgs
         click_area = args.click_area
         del args.inseg_global  # delete before printing
+        voxel_size = args.voxel_size
     print(f'compute_iou args: {args}')
 
     utils.ensure_folder_exists(output_dir)
@@ -70,12 +74,13 @@ def main(args):
 
     # load model from path
     if (inseg_model == None):
-        inseg_model_class, inseg_global_model = get_model(model_path, device)
+        inseg_model_class, inseg_global_model = utils.get_model(model_path, device)
     else:
         inseg_model_class = inseg_model
         inseg_global_model = inseg_global
 
     results = []
+    results_classes = {}
 
     i = 0
 
@@ -93,20 +98,14 @@ def main(args):
         coords = torch.tensor(coords).float().to(device)
         feats = torch.tensor(feats).float().to(device)
         labels = torch.tensor(labels).long().to(device)
-        if verbose:
-            print(f'Batch: {coords.shape=}, {feats.shape=}, {labels.shape=}')
 
-            print(f'inputs: feats({feats.shape})\n'
-                  f'        coords({coords.shape})')
-        pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device)
+        pred, logits = inseg_model_class.prediction(feats.float(), coords.cpu().numpy(), inseg_global_model, device, voxel_size=voxel_size)
         pred = torch.unsqueeze(pred, dim=-1)
-        if verbose:
-            print(f'outputs: pred({pred.shape})\n'
-                  f'         logits({logits.shape})')
-            print(f'labels: labels({labels.shape})')
 
         iou = inseg_model_class.mean_iou(pred, labels).cpu()
         if verbose:
+            if data_loader.last_class is not None:
+                print(f'class: {data_loader.last_class}')
             print(f'iou: {iou}')
 
         if i < max_imgs:
@@ -114,20 +113,33 @@ def main(args):
             if show_3d:
                 o3d.visualization.draw_geometries([output_point_cloud])
             utils.save_point_cloud_views(output_point_cloud, iou, i, output_dir, verbose)
+            
         results.append(iou)
+        if data_loader.last_class is not None:
+            if not data_loader.last_class in results_classes.keys():
+                results_classes[data_loader.last_class] = []
+            results_classes[data_loader.last_class].append(iou)
+   
         if verbose:
-            print(f'Mean iou so far: {sum(results) / len(results)}')
+            if data_loader.last_class is not None:
+                print(f'Mean iou so far ({data_loader.last_class}): {sum(results_classes[data_loader.last_class]) / len(results_classes[data_loader.last_class])}')
+            print(f'Mean iou so far (total): {sum(results) / len(results)}')
         i += 1
 
     # print result mean
     if verbose:
-        print(f'Mean IoU: {sum(results) / len(results)}')
+        print(f'Mean IoU (total): {sum(results) / len(results)}')
+        if len(results_classes.keys()) > 0:
+            for key in results_classes.keys():
+                print(f'Mean IoU ({key}): {sum(results_classes[key]) / len(results_classes[key])}')
+
+    print(f'total,{sum(results) / len(results):.4f}', file=open(f'{output_dir}/results.txt', 'a'))
+    if len(results_classes.keys()) > 0:
+        for key in results_classes.keys():
+            print(f'{key},{sum(results_classes[key]) / len(results_classes[key]):.4f}', file=open(f'{output_dir}/results.txt', 'a'))
+
     return sum(results) / len(results) if len(results) > 0 else 0
 
-def get_model(pretrained_weights_file, device):
-    inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
-    global_model = inseg_global.create_model(device, inseg_global.pretraining_weights_file)
-    return inseg_global, global_model
 
 if __name__ == "__main__":
     args = parseargs()
