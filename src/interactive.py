@@ -258,7 +258,7 @@ class Interactive:
     def loadModel(self, path):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         inseg_model_class = InteractiveSegmentationModel(pretraining_weights=path)
-        inseg_global_model = inseg_model_class.create_model(device, inseg_model_class.pretraining_weights_file)
+        inseg_global_model = inseg_model_class.create_model(inseg_model_class.pretraining_weights_file, device=device)
         return inseg_model_class, inseg_global_model
 
     def loadFile(self):
