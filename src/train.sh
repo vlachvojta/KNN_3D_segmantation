@@ -16,12 +16,12 @@ python -u train.py \
     --voxel_size 0.07 \
     --click_area 0.07 \
     -o $OUTPUT_DIR \
-    --test_step 10 \
-    --save_step 50 \
+    --test_step 50 \
+    --save_step 100 \
     --saved_loss $OUTPUT_DIR/train_losses.npy \
     --saved_ious_val $OUTPUT_DIR/val_ious.npy \
     --saved_ious_train $OUTPUT_DIR/train_ious.npy \
-    --lr 0.0001 \
+    --lr 0.0005 \
     -b 12 \
     -m $PRETRAINED_MODEL_PATH \
     2>&1 | tee -a $OUTPUT_DIR/train.log

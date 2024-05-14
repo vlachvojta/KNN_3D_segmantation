@@ -21,7 +21,7 @@ python -u train.py \
     --saved_loss $OUTPUT_DIR/train_losses.npy \
     --saved_ious_val $OUTPUT_DIR/val_ious.npy \
     --saved_ious_train $OUTPUT_DIR/train_ious.npy \
-    --lr 0.0001 \
+    --lr 0.0005 \
     -b 12 \
     -m $PRETRAINED_MODEL_PATH \
     2>&1 | tee -a $OUTPUT_DIR/train.log
