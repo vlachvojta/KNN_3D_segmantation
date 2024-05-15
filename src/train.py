@@ -210,17 +210,14 @@ def main(args):
 
 def get_model(pretrained_weights_file, output_dir, model_class, device):
     # try to find model in output_dir
-    model_regex = r'(model|MinkUnet\d{2,3}[A-Z]?)_(\d+).pth'
-    models = [re.match(model_regex, f).groups()[0] for f in os.listdir(output_dir) 
-              if re.match(model_regex, f)]
+    model_regex = r'(model|MinkUNet\d{2,3}[A-Z]?)_(\d+).pth'
+    models = [re.match(model_regex, f) for f in os.listdir(output_dir) if re.match(model_regex, f)]
 
     trained_steps = 0
     if models:
-        trained_steps = max([int(model) for model in models])
-        pretrained_weights_file = os.path.join(output_dir, f'model_{trained_steps}.pth')
-
-    # if not pretrained_weights_file or not os.path.exists(pretrained_weights_file):
-    #     raise FileNotFoundError(f'Pretrained model not found at {pretrained_weights_file}')
+        model_dict = {int(model.group(2)): model.group(0) for model in models}
+        trained_steps = max(model_dict.keys())
+        pretrained_weights_file = os.path.join(output_dir, model_dict[trained_steps])
 
     print(f'Loading model from {pretrained_weights_file}')
     inseg_global = InteractiveSegmentationModel(pretraining_weights=pretrained_weights_file)
