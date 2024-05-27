@@ -131,7 +131,9 @@ def main(args):
             train_batch = next(train_iter)
 
             if train_step % 5 == 0:
-                torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
+                saved = empty_cache()
+                print(f'Saved {saved} GB of memory by emptying cache.')
+                # torch.cuda.empty_cache()  # release unassigned variables/tensors from GPU memory
 
             if args.test_step > 0 and train_step % args.test_step == 0:
                 inseg_global_model.eval()
@@ -148,7 +150,7 @@ def main(args):
                             'show_3d': False,
                             'limit_to_one_object': True,
                             'verbose': False,
-                            'max_imgs': 5,
+                            'max_imgs': 3,
                             'click_area': args.click_area,
                             'voxel_size': voxel_size}
                 val_iou = compute_iou.main(iou_args)
@@ -169,7 +171,15 @@ def main(args):
             labels = labels_to_logit_shape(labels)
             labels = labels.float()
             feats = feats.float()
+            print(f'{coords.shape=}, {feats.shape=}, {labels.shape=}')
 
+            print(f'Before adding data: memory_allocated: {mem_aloc()}, memory_cached(): {mem_cache()}')
+            if mem_cache() > 7:
+                print('!!! Clearing cache !!!')
+                # torch.cuda.empty_cache()
+                saved = empty_cache()
+                print(f'Saved {saved} GB of memory by emptying cache.')
+                print(f'After clearing cache memory_allocated: {mem_aloc()}, memory_cached(): {mem_cache()}')
             # voxelized input
             super_feats = torch.cat((feats, labels), dim=1)
             super_sinput = ME.SparseTensor(super_feats.float(), coords, device=device)
@@ -189,7 +199,7 @@ def main(args):
             optimizer.step()
             train_losses.append(loss.item())
             train_iou_before_slice = inseg_model_class.mean_iou(sout.F.argmax(dim=1), slabels.F.argmax(dim=1)).cpu()
-
+            print(f'After adding data: memory_allocated: {mem_aloc()} GB, memory_cached(): {mem_cache()} GB')
             # save first 10 voxelized point clouds (first out of every batch) for every test_step
             if args.test_step > 0 and train_step % args.test_step < 5:
                 train_step_to_save = train_step - (train_step %  args.test_step)
@@ -205,8 +215,24 @@ def main(args):
             train_ious.append(train_iou)
             print(f'train_loss: {loss.item():.5f}, train_iou_before_slice: {train_iou_before_slice:.5f}, train_iou: {train_iou:.5f}')
             print('.', end='', flush=True)
+            print('')
 
         print(f'\n\nEpoch {epoch} took {utils.timeit(epoch_time)}')
+
+def empty_cache():
+    before = mem_cache()
+    torch.cuda.empty_cache()
+    after = mem_cache()
+    return round(before - after, 2)
+
+def bytes_to_gb(bytes):
+    return round(bytes / 1024 / 1024 / 1024, 2)
+
+def mem_aloc():
+    return bytes_to_gb(torch.cuda.memory_allocated())
+
+def mem_cache():
+    return bytes_to_gb(torch.cuda.memory_cached())
 
 def get_model(pretrained_weights_file, output_dir, model_class, device):
     # try to find model in output_dir
@@ -293,21 +319,11 @@ def plot_stats(train_losses, val_ious, train_ious, train_step, graphs_path):
     # print(f'train_losses: {train_losses}')
     # print(f'val_ious: {val_ious}')
 
-    fig, ax = plt.subplots(3, 2)
-    for i in range(2):
-        ax[0, i].plot(train_losses)
-        ax[0, i].set_title('Train losses')
-        ax[0, i].set_xlabel('Trained steps')
-        ax[1, i].plot(train_ious)
-        ax[1, i].set_title('Train IOU')
-        ax[1, i].set_xlabel('Trained steps')
-        ax[2, i].plot(val_ious)
-        ax[2, i].set_title('Validation IOU')
-        ax[2, i].set_xlabel('Test steps')
+    fig, ax = plt.subplots(3, 2, figsize=(15, 10))
+    plot_stats_values(train_losses, ax[0, :], title='Train losses', xlabel='Training step')
+    plot_stats_values(train_ious, ax[1, :], title='Train IOU', xlabel='Training step')
+    plot_stats_values(val_ious, ax[2, :], title='Validation IOU', xlabel='Test step')
 
-    ax[0, 0].set_yscale('log')
-    ax[1, 0].set_yscale('log')
-    ax[2, 0].set_yscale('log')
     plt.tight_layout()
     print(f'Saving losses to {os.path.join(graphs_path, "losses.png")}')
     plt.savefig(os.path.join(graphs_path, 'losses.png'))
@@ -316,6 +332,34 @@ def plot_stats(train_losses, val_ious, train_ious, train_step, graphs_path):
     np.save(os.path.join(graphs_path, 'train_losses.npy'), train_losses)
     np.save(os.path.join(graphs_path, 'val_ious.npy'), val_ious)
     np.save(os.path.join(graphs_path, 'train_ious.npy'), train_ious)
+
+def running_average(stats, window_size_ratio=0.1):
+    window_size = int(len(stats) * window_size_ratio)
+    running_avg = np.zeros(len(stats))
+    running_avg[0] = stats[0]
+
+    for i in range(1, len(stats)):
+        if i < window_size:
+            running_avg[i] = np.mean(stats[:i])
+        else:
+            running_avg[i] = np.mean(stats[i-window_size:i])
+
+    return running_avg
+
+def plot_stats_values(stats, ax, title='', xlabel=''):
+    running_average_precalced = running_average(stats)
+    for i in range(2):
+        ax[i].plot(stats, label='IoU', color='b')
+        ax[i].axhline(y=np.max(stats), color='g', linestyle='--')
+        ax[i].axhline(y=np.min(stats), color='g', linestyle='--')
+        ax[i].plot(stats, color='b')
+        ax[i].plot(running_average_precalced, color='r', linewidth=2)
+        ax[i].set_title(title)
+        ax[i].set_xlabel(xlabel)
+        ax[i].set_title(title)
+        ax[i].set_xlabel(xlabel)
+
+    ax[1].set_yscale('log')
 
 def visualize_one_voxelized_point_cloud(sinput, slabels, sout, iou, output_dir, i, show_3d=False, verbose=False):
     # select coords for first point cloud
