@@ -360,6 +360,7 @@ def plot_stats_values(stats, ax, title='', xlabel=''):
         ax[i].set_xlabel(xlabel)
 
     ax[1].set_yscale('log')
+    ax[1].set_title(f'{title} (log scale)')
 
 def visualize_one_voxelized_point_cloud(sinput, slabels, sout, iou, output_dir, i, show_3d=False, verbose=False):
     # select coords for first point cloud
