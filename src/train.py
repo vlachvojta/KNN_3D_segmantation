@@ -335,25 +335,24 @@ def plot_stats(train_losses, val_ious, train_ious, train_step, graphs_path):
 
 def running_average(stats, window_size_ratio=0.1):
     window_size = int(len(stats) * window_size_ratio)
-    running_avg = np.zeros(len(stats))
-    running_avg[0] = stats[0]
+    running_avg = np.zeros(len(stats) - window_size)
 
-    for i in range(1, len(stats)):
-        if i < window_size:
-            running_avg[i] = np.mean(stats[:i])
-        else:
-            running_avg[i] = np.mean(stats[i-window_size:i])
+    for i in range(len(stats) - window_size):
+        running_avg[i] = np.mean(stats[i:i+window_size])
 
-    return running_avg
+    running_average_indexes = np.arange(window_size, len(stats))
+
+    return running_avg, running_average_indexes
 
 def plot_stats_values(stats, ax, title='', xlabel=''):
-    running_average_precalced = running_average(stats)
+    running_avg, running_avg_indexes  = running_average(stats)
+
     for i in range(2):
         ax[i].plot(stats, label='IoU', color='b')
         ax[i].axhline(y=np.max(stats), color='g', linestyle='--')
         ax[i].axhline(y=np.min(stats), color='g', linestyle='--')
         ax[i].plot(stats, color='b')
-        ax[i].plot(running_average_precalced, color='r', linewidth=2)
+        ax[i].plot(running_avg_indexes, running_avg, color='r', label='Running average')
         ax[i].set_title(title)
         ax[i].set_xlabel(xlabel)
         ax[i].set_title(title)
